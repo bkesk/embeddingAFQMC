@@ -621,7 +621,7 @@ def custom_jk(mol, dm, *args):
     
     return J, K
 
-def customH_mf(mf, EnucRep, on_the_fly=True, dm=None, one_body_file='one_body_gms', V2b_file='V2b_AO_cholesky.mat', verb=4):
+def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm=None, one_body_file='one_body_gms', V2b_file='V2b_AO_cholesky.mat', verb=4):
 
     # TODO: Known bug - the dm is (sometimes) stored as [dm_a,dm_b] instead of a single matrix
     #                   need to implement a check for this and convert to single matrix
@@ -704,9 +704,21 @@ def customH_mf(mf, EnucRep, on_the_fly=True, dm=None, one_body_file='one_body_gm
 
     if dm is not None:
         if verb >= 4:
+            print("[+] customH_mf : using provided DM as initial guess")
             print("DM provided -> Electronic Energy: {}".format(mf.energy_elec(dm=dm)))
         mf.kernel(dm)
+    elif dm_file is not None and N_frozen_occ is not None:
+        if verb >= 4:
+            print("[+] customH_mf : using DM from {} with N_frozen_occ = {}".format(dm_file,N_frozen_occ))
+        dm_full = get_dm_from_h5(dm_file)
+        # need the number of frozen occupied orbitals to get the correct slice from the
+        #   full density matrix
+        dm = [dm_full[0][N_frozen_occ:M+N_frozen_occ,N_frozen_occ:M+N_frozen_occ],
+              dm_full[1][N_frozen_occ:M+N_frozen_occ,N_frozen_occ:M+N_frozen_occ]]
+        mf.kernel(dm)
     else:
+        if verb >= 4:
+            print("[+] customH_mf : no DM provided, using Pyscf default Guess")
         mf.kernel()
 
 # Spin consistent basis - prototype:
