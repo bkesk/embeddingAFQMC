@@ -5,6 +5,7 @@ from pyscf import lib, gto, scf, ao2mo # importing specific pyscf sub-modules
 # the following are libraries written by us
 import pyqmc.matrices.gms as gms # written by Wirawan Purwanto to all read/write to the GAMESS file format for 1-body, and single particle orbitals.
 import Cholesky_utils_py3 as ch # written by Kyle Eskridge to implement a Cholesky decomp. in pyscf, along with other support functions.
+import density_matrix as dmat
 
 def ortho_check(mf,C=None,mol=None,verb=False):
     '''
@@ -844,3 +845,54 @@ def get_dm_from_h5(h5name, verb=False):
         print("  [+] Trace of the density matrix beta sector = {}".format(np.trace(dmb)))
 
     return [dma,dmb]
+
+def write_rdm1(name,dm,restr=True):
+    if restr:
+        dma = dm
+        dmb = dm
+    else:
+        dma = dm[0]
+        dmb = dm[1]
+    f = h5.File(name,'w')
+    try:
+        f.create_dataset("dm_a", data=dma)
+        f.create_dataset("dm_b", data=dmb)
+        f.create_dataset("dm", data=dma + dmb)
+    except:
+        f["dm_a"][...]= dma
+        f["dm_b"][...]= dmb
+        f["dm"][...]= dma + dmb
+    f.close()
+
+def transform_rdm1(mf, dm, gms_name, mol, restr_basis=True):
+    '''
+    For now, it is assumed that dm = [dma, dmb]
+    '''
+    LMO = gms.EigenGms()
+    LMO.read(gms_name)
+    # need to get overlap matrix
+    S = ch.get_ovlp(mol)
+
+    if restr_basis:
+        D = LMO.alpha
+        print("[+] checking orthonormality of localized orbitals: ")
+        ortho_check(mf,C=D)
+        dm_new = np.array([dmat.transform_dm(dm[0], D, S), dmat.transform_dm(dm[1], D, S)])
+    else:
+        D = [LMO.alpha, LMO.beta]
+        print("[+] checking orthonormality of localized alhpa orbitals: ")
+        ortho_check(mf,C=D[0])
+        print("[+] checking orthonormality of localized beta orbitals: ")
+        ortho_check(mf,C=D[1])
+        dm_new = np.array([dmat.transform_dm(dm[0], D[0], S), dmat.transform_dm(dm[1], D[1], S)])
+
+    return dm_new
+
+def check_rdm1(dm):
+    print(("[+] Trace dm_a = {}".format(np.trace(dm[0]))))
+    print(("[+] Trace dm_b = {}".format(np.trace(dm[1]))))
+    print(("[+] Trace dm = {}".format(np.trace(dm[0] + dm[1]))))
+
+    print(("dm_a is symmetric? - {}".format(dmat.check_symmetric(dm[0], verb=True))))
+    print(("dm_b is symmetric? - {}".format(dmat.check_symmetric(dm[1], verb=True))))
+    print(("dm is symmetric? - {}".format(dmat.check_symmetric(dm[0]+dm[1], verb=True))))
