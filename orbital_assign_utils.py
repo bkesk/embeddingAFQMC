@@ -79,3 +79,63 @@ def write_orbital_dist(name, orbList, bins=100, display_plot=False):
     f.close()
 
     return count
+
+
+def orbitalSetStats(orbitals):
+    '''
+    prints localization stats. of the locality of the orbitals in 'orbitals'
+
+    orbitals is a list with the entries as follows:
+    orbitals = [[index, centroid position, sigma2, sigma4, distance from centroid to origin],
+                [ '' ],
+                  ... ,
+                 [ '']]
+
+    '''
+    sum2ndMom = 0.0
+    sum4thMom = 0.0
+
+    max2ndMom = 0.0
+    max4thMom = 0.0
+
+    Norbs = len(orbitals)
+
+    for orb in orbitals:
+        sum2ndMom = sum2ndMom + orb[2]
+        if (orb[2] > max2ndMom):
+            max2ndMom = orb[2]
+        sum4thMom = sum4thMom + orb[3]        
+        if (orb[3] > max4thMom):
+            max4thMom = orb[3]
+    print "   - Num. Orbitals: ", Norbs
+    if Norbs > 0:
+        print "   - mean 2nd central moment: ", sum2ndMom/Norbs
+        print "   - mean 4th central moment: ", sum4thMom/Norbs
+        print "   - max 2nd central moment: ", max2ndMom
+        print "   - max 4th central moment: ", max4thMom
+
+def get_orbital_sizeDist(fname, startIndex=0):
+    
+    f = open(fname, 'r')
+    
+    orbitals = []
+    
+    index = startIndex
+    
+    for line in f:
+        lineList = line.split()
+        centL = lineList[3]
+        cent = eval(centL)
+        rad = 0.0
+        orbitals.append((index, cent, eval(lineList[1]), eval(lineList[2]), rad))
+        index = index + 1
+
+    f.close()
+    return orbitals, index
+
+def stats_from_sizeDist(fname):
+    '''
+    Simple shortcut function for a common combination of function calls
+    '''
+    orbitals = get_orbital_sizeDist(fname)[0]
+    orbitalSetStats(orbitals)

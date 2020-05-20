@@ -4,7 +4,7 @@ from pyscf import lib, gto, scf, ao2mo # importing specific pyscf sub-modules
 
 # the following are libraries written by us
 import pyqmc.matrices.gms as gms # written by Wirawan Purwanto to all read/write to the GAMESS file format for 1-body, and single particle orbitals.
-import Cholesky_utils as ch # written by Kyle Eskridge to implement a Cholesky decomp. in pyscf, along with other support functions.
+import Cholesky_utils_py3 as ch # written by Kyle Eskridge to implement a Cholesky decomp. in pyscf, along with other support functions.
 
 def ortho_check(mf,C=None,mol=None,verb=False):
     '''
@@ -47,13 +47,13 @@ def dm_swap(mf, swapInds):
     '''
     #dm = scf.hf.from_chk(mol, chkfile)
     occ = mf.mo_coeff
-    print "Coeffs", occ
+    print("Coeffs", occ)
 
     for pair in swapInds:
         occ[pair[0], :], occ[pair[1], :] = occ[pair[1], :], occ[pair[0], :]
         
     dm = mf.make_rdm1(mo_coeff=occ)
-    print "DM : ", dm
+    print("DM : ", dm)
     return dm
 
 def write_orbs(C, M, output, restricted=True): # simple wrapper function to interface with Wirawan's GAMESS format library
@@ -134,7 +134,7 @@ def write_to_erkale(mf, checkFile, conv=True): # function used to insert pyscf m
         #for i in range(Na):
         #    O[i] = 2
         O = mf.mo_occ #mf.mo_occ[0] + mf.mo_occ[1]
-        print O
+        print(O)
         f['/occs'][...] = O
 
     else:
@@ -152,7 +152,7 @@ def write_to_erkale(mf, checkFile, conv=True): # function used to insert pyscf m
             MOs[...] = C.T
             
             E = mf.mo_energy
-            print E
+            print(E)
             try:
                 eigenE = f['/E']
             except:
@@ -246,7 +246,7 @@ def make_rdm1_localized_fragments(mf, basis_ename, chk1, chk2, useAlpha=True, ve
     occ1 = f1['/scf/mo_occ'][...]
     M1 = C1.shape[0]
     if verb:
-        print "M1: ", M1
+        print("M1: ", M1)
     f1.close()
         
     mol1 = lib.chkfile.load_mol(chk1)
@@ -262,7 +262,7 @@ def make_rdm1_localized_fragments(mf, basis_ename, chk1, chk2, useAlpha=True, ve
     occ2 = f2['/scf/mo_occ'][...]
     M2 = C2.shape[0]
     if verb:
-        print "M2: ", M2
+        print("M2: ", M2)
     f2.close()
 
     mol2 = lib.chkfile.load_mol(chk2)
@@ -281,7 +281,7 @@ def make_rdm1_localized_fragments(mf, basis_ename, chk1, chk2, useAlpha=True, ve
     #Transform to new basis
     M = M1+M2
     if verb:
-        print "M: ", M
+        print("M: ", M)
     Ca = np.zeros((M,M))
     Ca[:M1,:M1] = C1
     Ca = C_basis.conj().T*S*Ca
@@ -308,13 +308,13 @@ def make_rdm1_localized_fragments(mf, basis_ename, chk1, chk2, useAlpha=True, ve
     # construct density matrix for each fragment
     dm_a = mf.make_rdm1(mo_coeff=Ca.T, mo_occ=occa)
     if verb:
-        print "[+] fragment a DM: ", dm_a
+        print("[+] fragment a DM: ", dm_a)
         print("[+] trace of DM_a alpha = {}".format(np.trace(dm_a[0])))
         print("[+] trace of DM_a beta = {}".format(np.trace(dm_a[1])))
 
     dm_b = mf.make_rdm1(mo_coeff=Cb.T, mo_occ=occb)
     if verb:
-        print "[+] fragment b DM: ", dm_b
+        print("[+] fragment b DM: ", dm_b)
         print("[+] trace of DM_b alpha = {}".format(np.trace(dm_b[0])))
         print("[+] trace of DM_b beta = {}".format(np.trace(dm_b[1])))
 
@@ -343,10 +343,10 @@ def make_rdm1_localized_fragments(mf, basis_ename, chk1, chk2, useAlpha=True, ve
 
     def print_mat(C):
         dims = C.shape
-        print "mat dims =", dims
+        print("mat dims =", dims)
         for i in range(dims[0]):
             for j in range(dims[1]):
-                print i,j,C[i,j]
+                print(i,j,C[i,j])
     #if verb:
     #    print "[+] printing Ca matrix"
     #    print_mat(Ca)
@@ -355,8 +355,8 @@ def make_rdm1_localized_fragments(mf, basis_ename, chk1, chk2, useAlpha=True, ve
 
     dm = dm_a + dm_b # mf.make_rdm1(mo_coeff=C, mo_occ=occ)
     if verb:
-        print "DM: ", dm
-        print "[+] make_rdm1_localized_fragments : saving debug info to debug.h5"
+        print("DM: ", dm)
+        print("[+] make_rdm1_localized_fragments : saving debug info to debug.h5")
         dbg = h5.File("debug.h5")
         try:
             dbg.create_dataset("DM_a", data=dm_a)
@@ -380,7 +380,7 @@ def make_rdm1_fragment(mf, chk1, chk2, verb=False):
     occ1 = f1['/scf/mo_occ'][...]
     M1 = C1.shape[0]
     if verb:
-        print "M1: ", M1
+        print("M1: ", M1)
     f1.close()
 
     f2 = h5.File(chk2, 'r')
@@ -388,12 +388,12 @@ def make_rdm1_fragment(mf, chk1, chk2, verb=False):
     occ2 = f2['/scf/mo_occ'][...]
     M2 = C2.shape[0]
     if verb:
-        print "M2: ", M2
+        print("M2: ", M2)
     f2.close()
 
     M = M1+M2
     if verb:
-        print "M: ", M
+        print("M: ", M)
     C = np.zeros((M,M))
     C[:M1,:M1] = C1
     C[M1:,M1:] = C2
@@ -404,17 +404,17 @@ def make_rdm1_fragment(mf, chk1, chk2, verb=False):
 
     def print_mat(C):
         dims = C.shape
-        print "mat dims =", dims
+        print("mat dims =", dims)
         for i in range(dims[0]):
             for j in range(dims[1]):
-                print i,j,C[i,j]
+                print(i,j,C[i,j])
     if verb:
-        print "printing C matrix"
+        print("printing C matrix")
         print_mat(C)
 
     dm = mf.make_rdm1(mo_coeff=C, mo_occ=occ)
     if verb:
-        print "DM: ", dm
+        print("DM: ", dm)
     return dm
 
 def make_rdm1_fragment_UHF(mf, chk1, chk2, verb=False):
@@ -426,7 +426,7 @@ def make_rdm1_fragment_UHF(mf, chk1, chk2, verb=False):
     occ1 = f1['/scf/mo_occ'][...]
     M1 = C1.shape[0]
     if verb:
-        print "M1: ", M1
+        print("M1: ", M1)
     f1.close()
 
     f2 = h5.File(chk2, 'r')
@@ -434,12 +434,12 @@ def make_rdm1_fragment_UHF(mf, chk1, chk2, verb=False):
     occ2 = f2['/scf/mo_occ'][...]
     M2 = C2.shape[0]
     if verb:
-        print "M2: ", M2
+        print("M2: ", M2)
     f2.close()
 
     M = M1+M2
     if verb:
-        print "M: ", M
+        print("M: ", M)
     C = np.zeros((M,M))
     C[:M1,:M1] = C1
     C[M1:,M1:] = C2
@@ -450,17 +450,17 @@ def make_rdm1_fragment_UHF(mf, chk1, chk2, verb=False):
 
     def print_mat(C):
         dims = C.shape
-        print "mat dims =", dims
+        print("mat dims =", dims)
         for i in range(dims[0]):
             for j in range(dims[1]):
-                print i,j,C[i,j]
+                print(i,j,C[i,j])
     if verb:
-        print "printing C matrix"
+        print("printing C matrix")
         print_mat(C)
 
     dm = mf.make_rdm1(mo_coeff=C, mo_occ=occ)
     if verb:
-        print "DM: ", dm
+        print("DM: ", dm)
     return dm
 
 
@@ -470,22 +470,22 @@ def make_rdm1_pyscf_chk(mf, chk, verb=False):
     occ = f['/scf/mo_occ'][...]
     M = C.shape[0]
     if verb:
-        print "M: ", M
+        print("M: ", M)
     f.close()
 
     def print_mat(C):
         dims = C.shape
-        print "mat dims =", dims
+        print("mat dims =", dims)
         for i in range(dims[0]):
             for j in range(dims[1]):
-                print i,j,C[i,j]
+                print(i,j,C[i,j])
     if verb:
         print("printing C matrix from {}".format(chk))
         print_mat(C)
 
     dm = mf.make_rdm1(mo_coeff=C, mo_occ=occ)
     if verb:
-        print "DM: ", dm
+        print("DM: ", dm)
     return dm
 
 # custom H tools:
@@ -520,12 +520,12 @@ def make_rdm1_from_resEigenGms(ename, nelec, mol, verb=False):
         mo_occs[b] += 1.0
 
     if verb:
-        print "occs: ", mo_occs
+        print("occs: ", mo_occs)
         
     dm = mf.make_rdm1(np.array(C), mo_occs)
 
     if verb:
-        print "dm: ", dm
+        print("dm: ", dm)
     return dm
 
 def make_rdm1_from_erkaleOrbs(ename, nelec, mol, verb=False):
@@ -565,17 +565,17 @@ def make_rdm1_from_erkaleOrbs(ename, nelec, mol, verb=False):
     #    mo_u_occs[1][b] = n[b,b]
 
     if verb:
-        print "occs: ", mo_u_occs
+        print("occs: ", mo_u_occs)
         
     dm = mf_u.make_rdm1(mo_coeff=np.array([Ca, Cb]), mo_occ=mo_u_occs)
 
     def print_mat(C):
         dims = C.shape
-        print "mat dims =", dims
+        print("mat dims =", dims)
         for i in range(dims[0]):
             for j in range(dims[1]):
-                print C[i,j],
-            print ""
+                print(C[i,j],end='')
+            print("")
     
     if verb:
         print("[+] make_rdm1_from_erkaleOrbs - dm: ")
@@ -621,6 +621,56 @@ def custom_jk(mol, dm, *args):
     
     return J, K
 
+
+def custom_jk_uhf(mol, dm, *args):
+    '''
+    This function allows a custom 2-Body Hamiltonian, V, expressed as a factored form,
+    V = sum_g A^g (A^g)^dagger (where A are one-body operators)
+    with no need to completely recompute the full 2-Body tensor.
+   
+    Computing J and K from Cholesky vectors, A, (einstein convention implied!):
+
+    J_il = (A g il) (A^dag g jk) * (P kj)
+    K_jl =  (A^dag g jk) * (P ki) * (A g il)
+
+    define: (T g ji) = (A^dag g jk) * (P ki)
+
+    then:
+    J_il = (A g il) (T g jj)
+    K_jl = (A g il) (T g ji)
+
+    inputs:
+    mol - currently, we are just reading the verbosity setting (TODO update to bool)
+    dm - reduces single particle density matrix (should have format dm=[dm_a,dm_b])
+    
+    '''
+   
+    All = ch.load_choleskyList_3_IndFormat()
+    # currently, we are loading A from memory each time get_jk is called (every HF iteration)
+    # it may be possible to give the scf object aribtrary attributes
+    # which would allow the following A and Adag matricies to be stored
+    A = All[2]
+    Adag = All[3]
+    
+    if mol.verbose > 4:
+        print("[+] custom_jk_uhf: shape of Adag {}".format(Adag.shape))
+        print("[+] custom_jk_uhf: shape of dm {}".format(dm.shape))
+
+    T_a = np.einsum('gjk,ki->gji',Adag,dm[0]) # test! using dm[0] instead of dm
+    T_b = np.einsum('gjk,ki->gji',Adag,dm[1])
+
+    J_a = np.einsum('gil,gjj->il',A,T_a)
+    K_a = np.einsum('gil,gji->jl',A,T_a)
+    
+    J_b = np.einsum('gil,gjj->il',A,T_b)
+    K_b = np.einsum('gil,gji->jl',A,T_b)
+
+    J=np.array([J_a,J_b])
+    K=np.array([K_a,K_b])
+
+    return J, K
+
+
 def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm=None, one_body_file='one_body_gms', V2b_file='V2b_AO_cholesky.mat', verb=4):
 
     # TODO: Known bug - the dm is (sometimes) stored as [dm_a,dm_b] instead of a single matrix
@@ -661,9 +711,9 @@ def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm
     M, h1, S = ch.load_oneBody_gms(one_body_file)
 
     if verb > 4:
-        print "M = ", M
-        print "H1 ", h1
-        print "S ", S
+        print("M = ", M)
+        print("H1 ", h1)
+        print("S ", S)
 
     # get the eri's:
     #eri_ext = load_V2b_dump("V2b_AO_cholesky.mat").T
@@ -689,11 +739,11 @@ def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm
 
     if on_the_fly:
         if verb >= 4:
-            print "==== computing two-body interactions on the fly ===="
-        mf.get_jk = custom_jk
+            print("==== computing two-body interactions on the fly ====")
+        mf.get_jk = custom_jk_uhf
     else:
         if verb >= 4:
-            print "==== computing and storing two-body tensor in memory ===="
+            print("==== computing and storing two-body tensor in memory ====")
         Alist = ch.load_choleskyList_GAFQMCformat(verb =(verb>4))
         #Alist = ch.load_choleskyList_3_IndFormat(verb =(verb>4))
         fERI = ch.factoredERIs_updateable(Alist[2], M, verb=(verb>4))
@@ -705,16 +755,24 @@ def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm
     if dm is not None:
         if verb >= 4:
             print("[+] customH_mf : using provided DM as initial guess")
+
+            print("[+] customH_mf : checking integrity of provided density matrix")
+            print("  [+] Trace of the density matrix alpha sector = {}".format(np.trace(dm[0])))
+            print("  [+] Trace of the density matrix beta sector = {}".format(np.trace(dm[1])))
+
             print("DM provided -> Electronic Energy: {}".format(mf.energy_elec(dm=dm)))
         mf.kernel(dm)
     elif dm_file is not None and N_frozen_occ is not None:
         if verb >= 4:
             print("[+] customH_mf : using DM from {} with N_frozen_occ = {}".format(dm_file,N_frozen_occ))
-        dm_full = get_dm_from_h5(dm_file)
+        dm_full = get_dm_from_h5(dm_file, verb=(verb>=4))
         # need the number of frozen occupied orbitals to get the correct slice from the
         #   full density matrix
         dm = [dm_full[0][N_frozen_occ:M+N_frozen_occ,N_frozen_occ:M+N_frozen_occ],
               dm_full[1][N_frozen_occ:M+N_frozen_occ,N_frozen_occ:M+N_frozen_occ]]
+        print("[+] customH_mf : checking integrity of truncated density matrix")
+        print("  [+] Trace of the truncated density matrix alpha sector = {}".format(np.trace(dm[0])))
+        print("  [+] Trace of the truncated density matrix beta sector = {}".format(np.trace(dm[1])))
         mf.kernel(dm)
     else:
         if verb >= 4:
@@ -774,9 +832,15 @@ def make_spin_consistent_basis(nameErkChk, debug=False):
 
     f.close()
 
-def get_dm_from_h5(h5name):
+def get_dm_from_h5(h5name, verb=False):
     f = h5.File(h5name,'r')
     dma = f['/dm_a'][...]
     dmb = f['/dm_b'][...]
     f.close()
+    
+    if verb:
+        print("[+] get_dm_from_h5 : checking integrity of density matrix in {}".format(h5name))
+        print("  [+] Trace of the density matrix alpha sector = {}".format(np.trace(dma)))
+        print("  [+] Trace of the density matrix beta sector = {}".format(np.trace(dmb)))
+
     return [dma,dmb]
