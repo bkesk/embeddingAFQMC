@@ -1,3 +1,4 @@
+
 import numpy as np
 import sys
 import pyscf
@@ -158,7 +159,7 @@ def V2b_diagonal(mol, intor_name='int2e_sph', verb=None):
     However, the pyscf integral library (actually lincint) will only allow us to access integrals 
     shell/shell (not orbital by orbital).
 
-    ***** Imprtant Note: Pyscf seems to use the 'chemists" notation for index ordering
+    ***** Imprtant Note: Pyscf seems to use the "chemist's" notation for index ordering
     i.e. the returned integrals are (il|jk) as opposed to the 'physicists' notation <ij|kl>.
     
     '''
@@ -304,7 +305,6 @@ def V2b_row(mol, mu, CVlist=None, intor_name='int2e_sph', verb=None):
             print("\n   *** *** *** ***\n")
             
     return Vrow
-
 
 class factoredERIs:
     '''
@@ -839,3 +839,381 @@ def getCholesky_OnTheFly(mol=None, tol=1e-8, prescreen=True, debug=False):
                 print("\n*** *** *** ***\n")
 
     return choleskyNum, choleskyVecAO
+
+def getCholesky_OnTheFly_MOBasis(C, mol=None, tol=1e-8, prescreen=True, debug=False):
+
+    '''
+    inputs:
+
+    C - coefficient matrix of the MOs in terms of the AO's 
+    '''
+    print("[+]: Using experimental Cholesky Implementation : CD is performed in the MO basis, computing integrals in AO basis, and transforming as needed")
+    
+    nbasis  = mol.nao_nr()
+
+    choleskyVecAO = []; choleskyNum = 0
+    VmaxList = []
+    Vdiag = V2b_diagonal_MO(mol, C).copy() 
+
+    if debug:
+        print("Initial Vdiag: ", Vdiag)
+        verb = 5
+    else:
+        verb = 4
+
+
+    if prescreen: # zero small diagonal matrix elements - see J. Chem. Phys. 118, 9481 (2003)
+        imax = np.argmax(Vdiag); vmax = Vdiag[imax]
+        toScreen = np.less(Vdiag, tol*tol/vmax)
+        Vdiag[toScreen] = 0.0
+    
+    while True:
+        imax = np.argmax(Vdiag); vmax = Vdiag[imax]
+        VmaxList.append(vmax)
+        print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax) )
+        if(vmax<tol or choleskyNum==nbasis*nbasis):
+            print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
+            print('\n')
+            break
+        else:
+            if debug:
+                print("\n*** getCholesky_OnTheFly: debugging info*** \n")
+                print("imax = ", imax, " (i,l) ", (imax // nbasis, imax % nbasis))
+                print("vmax = ", vmax)
+            Vrow = V2b_row_MO(mol, C, imax, CVlist=choleskyVecAO, verb=verb)
+            oneVec = Vrow/np.sqrt(vmax)
+            choleskyVecAO.append(oneVec)                
+            if debug:
+                print("Vrow", Vrow)
+            choleskyNum+=1
+            Vdiag -= oneVec**2
+            if prescreen:
+                Vdiag = dampedPrescreenCond(Vdiag, vmax, tol)
+            if debug:
+                print("oneVec: ", oneVec)
+                print("oneVec**2: ", oneVec**2)
+                print("Vdiag: ", Vdiag)
+                print("\n*** *** *** ***\n")
+
+    return choleskyNum, choleskyVecAO
+
+def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, erifile='temp_eri.h5'):    
+    def v_diagonal_file(erifile):
+        # efficiently read the integrals from the hdf5 file
+        return diag
+
+    def v_row_file(erifile):
+        # efficiently read the integrals from the hdf5 file
+        return row
+   
+    nbasis  = mol.nao_nr()
+    # be more careful, this is will use a very large amount of memory!
+    #eri = scf._vhf.int2e_sph(mol._atm,mol._bas,mol._env)
+    #V   = ao2mo.restore(1, eri, nbasis)
+    #V   = V.reshape( nbasis*nbasis, nbasis*nbasis )
+
+    # 06042020 - I think we need all of the ERIs, since even the diagonal of Vijkl involes each
+    #            of the GTO basis integrals\
+
+    # FIRST CHECK IF WE ALREADY HAVE THE ERIFILE!!
+    eri = mol.ao2mo(C, erifile=erifile)
+    print(f'[DEV] : {eri.shape}')
+    
+    choleskyVecAO = []; choleskyNum = 0
+    Vdiag = v_diagonal_file(erifile) #V.diagonal().copy()
+    if debug:
+        print("Initial Vdiag: ", Vdiag)
+
+    if prescreen: # zero small diagonal matrix elements - see J. Chem. Phys. 118, 9481 (2003)
+        imax = np.argmax(Vdiag); vmax = Vdiag[imax]
+        toScreen = np.less(Vdiag, tol*tol/vmax)
+        Vdiag[toScreen] = 0.0
+
+    while True:
+        imax = np.argmax(Vdiag); vmax = Vdiag[imax]
+        print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax) )
+        if(vmax<tol or choleskyNum==nbasis*nbasis):
+            print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
+            print('\n')
+            break
+        else:
+            oneVec = V_row_file(erifile, imax)/np.sqrt(vmax)
+            if debug:
+                print("\n***debugging info*** \n")
+                print("imax: ", imax, " (i,l) ", (imax // nbasis, imax % nbasis))
+                print("vmax: ", vmax)
+                print("V[imax]", V[imax])
+                print("full V[imax]", Vorig[imax])
+            choleskyVecAO.append( oneVec )
+            choleskyNum+=1
+            V -= np.dot(oneVec[:, None], oneVec[None,:])
+            Vdiag -= oneVec**2
+            if prescreen:
+                Vdiag = dampedPrescreenCond(Vdiag, vmax, tol)
+            if debug:
+                print("oneVec: ", oneVec)
+                print("oneVec**2: ", oneVec**2)
+                print("Vdiag: ", Vdiag)
+
+    return choleskyNum, choleskyVecAO
+
+def GTO_ints(mol, index_range, verb=True):
+        '''
+        Inputs:
+        mol - Pyscf molecule object describing the system
+        index_range - an 8-ten list-like object, containing the index range of desired integrals in the following format (mu_start, mu_stop, nu_start, nu_stop, gamma_start, gamma_stop, delta_start, delta_stop) for V_{mu nu gamma delta}
+        
+        returns:
+        result - np array containing the requested integrals
+        '''
+
+        def get_shellRange():
+            index_map = map_shellIndex(mol)
+            if verb:
+                print("index map")
+                print("length of map:", len(index_map))
+                for entry in index_map:
+                    print(entry)
+        
+            # should be a simple lookup
+            shell_range = []
+            for i, global_index in enumerate(index_range):
+                shell_index = index_map[global_index][0] # index_map contains index pairs (I,i) where I is the shell index, and i is the index within the shell
+                if i % 2 == 0: # the start index is inclusive, but the stop index is exclusive
+                    shell_range.append(shell_index)
+                else:
+                    shell_range.append(shell_index+1)
+
+            return shell_range
+
+        # Can use the moleintor.getints('int2e', shls_slice=[:,nu,gamma, delta]) to
+        #  get V_mu[nu,gamma,delta] for example
+
+        #result = mol.moleintor.getints('int2e', shls_slice=index_range)
+        
+        #IMPORTANT, we need to convert from index to shell index before requesting ints!
+        if verb:
+            print(f'[DEBUG] : index_range = {index_range}' )
+            print(f'[DEBUG] : mol.nbas = {mol.nbas}' )
+        
+        shell_range = get_shellRange()
+
+        if verb:
+            print(f'[DEBUG] : shell_range = {shell_range}' )
+        
+        result = gto.moleintor.getints('int2e_sph',  mol._atm, mol._bas, mol._env, aosym='s1', shls_slice=shell_range)
+        if verb:
+            print('[DEBUG] : result =', result)
+        return result
+
+
+def GTO_ints_shellInd(mol, shell_range, verb=False):
+        '''
+        Inputs:
+        mol - Pyscf molecule object describing the system
+        index_range - an 8-ten list-like object, containing the index range of desired integrals in the following format (mu_start, mu_stop, nu_start, nu_stop, gamma_start, gamma_stop, delta_start, delta_stop) for V_{mu nu gamma delta}
+        
+        returns:
+        result - np array containing the requested integrals
+        '''
+        if verb:
+            print(f'[DEBUG] : shell_range = {shell_range}' )
+        
+        result = gto.moleintor.getints('int2e_sph',  mol._atm, mol._bas, mol._env, aosym='s1', shls_slice=shell_range)
+
+        return result
+
+
+def V_diagonal_MO(mol, C, intor='int2e_sph', verb=False):
+        '''
+        Compute the diagonal of V in an arbitrary MO basis (given by C), while computing GTO integrals on-the-fly. The MO basis may be truncated relative to GTO basis (i.e. M_MO < M_GTO).
+       
+        Inputs:
+        
+        mol : Pyscf molecule object spcifying the system (this will be the source of ints)
+        C : coefficient matrix specifying the MO orbitals in terms of the GTO basis functions
+              C does not have to be a square matrix (in general, it should be:
+              |psi_i> = Sum_{mu} C_{mu i} |g_mu> with C an M x M_A matrix
+
+        Returns:
+        The diagonal of V in the specified MO basis 
+
+
+        KNOWN BUG - the einsum below fails if C is a numpy.matrix, but works if C is a numpy.ndarray
+
+        '''
+
+        MA = C.shape[1]
+        M = mol.nao_nr()
+        Nshell = mol.nbas
+        
+        Vii = np.zeros((MA,M,M))
+        Vdiag = np.zeros((MA,MA))
+
+        offset = gto.ao_loc_nr(mol) # gives the index of the first basis function in each shell (and the last index)
+
+        # the expensive part
+        for i in range(MA): # note j=i
+            for gamma in range(Nshell):
+                for delta in range(Nshell):
+                    ints = GTO_ints_shellInd(mol, shell_range=[0,Nshell,delta,delta+1,0,Nshell,gamma,gamma+1])
+                    C_dag_row = C.conj().T[i,:]
+                    if verb:
+                        print(f'[Debug] : ints.shape is {ints.shape} \n C_dag_row.shape is {C_dag_row.shape}')
+                    Vii[i,offset[gamma]:offset[gamma+1],offset[delta]:offset[delta+1]] = \
+                        np.einsum('m,mdng,n->gd', C_dag_row, ints, C_dag_row, optimize='optimal') # need to double check this one
+        
+        for l in range(MA):
+            C_col = C[:,l].flatten()
+            if verb:
+                print(f'[Debug] : C_col.shape is {C_col.shape}')
+            Vdiag[:,l] = np.einsum('g,igd,d->i', C_col,Vii,C_col,optimize='optimal')
+
+        return Vdiag.flatten()
+
+def V_row_MO(mol, C, row_index, intor='int2e_sph',verb=False):
+    '''
+        Compute a row of V super-matrix in an arbitrary MO basis (given by C), while computing GTO integrals on-the-fly. The MO basis may be truncated relative to GTO basis (i.e. M_MO < M_GTO).
+       
+        Inputs:
+        
+        mol : Pyscf molecule object spcifying the system (this will be the source of ints)
+        C : coefficient matrix specifying the MO orbitals in terms of the GTO basis functions
+              C does not have to be a square matrix (in general, it should be:
+              |psi_i> = Sum_{mu} C_{mu i} |g_mu> with C an M x M_A matrix
+        row_index : index of desired row
+
+        Returns:
+        The row of V, corresponding to 'row_index' in the specified MO basis 
+    '''
+
+    MA = C.shape[1]
+    M = mol.nao_nr()
+    Nshell = mol.nbas
+        
+    Vnd = np.zeros((M,M)) # an intermediate matrix V_{[i,l], (nu,gamma)} where [i,l] is the fixed row index, i,l - LMO indices, nu, gamma - GTO indicies
+    Vjd = np.zeros((MA,M)) # Vnd with the nu GTO index transformed to the j LMO index
+    Vrow = np.zeros((MA,MA))
+
+    offset = gto.ao_loc_nr(mol) # gives the index of the first basis function in each shell (and the last index)
+
+    # convert from supermatrix index to (i,l) pair - note, this relates to the active space, LMO oribtals
+    i_global = row_index // MA
+    l_global = row_index % MA
+
+    if verb:
+        print(f'super-matrix row index = {row_index}, LMO index pair = ({i_global,l_global})')
+
+    # the expensive part
+    for nu in range(Nshell):
+        for gamma in range(Nshell):
+            ints = GTO_ints_shellInd(mol, shell_range=[0,Nshell,0,Nshell,nu,nu+1,gamma,gamma+1])
+            C_dag_row = C.conj().T[i_global,:]
+            C_col = C[:,l_global].flatten() # is flatten() necessary?
+            if verb:
+                print(f'[Debug] : V_row_MO() : \n  ->  ints.shape is {ints.shape}\n  ->   C_dag_row.shape is {C_dag_row.shape}\n  ->   C_col.shape is {C_col.shape}')
+            Vnd[offset[nu]:offset[nu+1],offset[gamma]:offset[gamma+1]] = \
+                        np.einsum('m,mdng,d->ng', C_dag_row, ints, C_col, optimize='optimal') # need to double check this one
+        
+    # tranform the nu GTO index to the j LMO index
+    Vjd = np.einsum('jn,nd->jd', C.conj().T, Vnd, optimize='optimal')
+    # tranform the delta GTO index to the k LMO index
+    Vrow = np.einsum('jd,dk->jk',Vjd,C)
+
+    return Vrow.flatten()
+
+def getCholeskyAO_MOBasis_NoIO(mol, C, tol=1e-8, prescreen=True, debug=False):
+
+    def _V_diagonal_MO(mol, C, verb=False):
+        '''
+        Compute the diagonal of V in an arbitrary MO basis (given by C), while computing GTO integrals on-the-fly. The MO basis may be truncated relative to GTO basis (i.e. M_MO < M_GTO).
+       
+        Inputs:
+        
+        mol : Pyscf molecule object spcifying the system (this will be the source of ints)
+        C : coefficient matrix specifying the MO orbitals in terms of the GTO basis functions
+              C does not have to be a square matrix (in general, it should be:
+              |psi_i> = Sum_{mu} C_{mu i} |g_mu> with C an M x M_A matrix
+
+        Returns:
+        The diagonal of V in the specified MO basis 
+        '''
+        return V_diagonal_MO(mol, C)
+        
+    def _V_row_MO(mol, C, index, CVlist):
+
+        def CV_row(index,CVlist,M):
+            '''
+            compute row at index 'index' using the current list of Cholesky Vectors 'CVlist'
+            
+            Note: untested!
+            '''
+            Sum = np.zeros((M,M))
+            #i = index // M
+            #l = index % M
+            for gamma in range(len(CVlist)):
+                L = CVlist[gamma]
+                #print(f'[Debug] : _V_row_MO() -> CV_row() -> L = {L}')
+                Ldag = L.reshape((M,M)).conj().T
+                #print(f'[Debug] : _V_row_MO() -> CV_row() -> Ldag = {Ldag}')
+                Sum += L[index]*Ldag
+                #print(f'[Debug] : _V_row_MO() -> CV_row() -> Sum = {Sum}')
+            return Sum.reshape((M*M))
+
+        M = C.shape[1]
+        return V_row_MO(mol, C, index) - CV_row(index, CVlist,M)
+
+    def print_msg(tol, prescreen):
+        '''
+        Printing useful information
+        '''
+        print(f'Performing Modified Cholesky Decomposition with tolerance {tol}')
+        if prescreen:
+            print("Using damped pre-screening")
+        print("Working in orthonormal, molecular orbital basis")
+        print("Computing GTO intergals on the fly")
+
+
+    ##### IMPORTANT TO_DO #####: Need to produce the embedding potential too!
+
+    print_msg(tol, prescreen)
+
+    nbasis  = mol.nao_nr()
+    choleskyVecMO = []; choleskyNum = 0
+    Vdiag = _V_diagonal_MO(mol, C)
+
+    if debug:
+        print("Initial Vdiag: ", Vdiag)
+
+    if prescreen: # zero small diagonal matrix elements - see J. Chem. Phys. 118, 9481 (2003)
+        imax = np.argmax(Vdiag); vmax = Vdiag[imax]
+        toScreen = np.less(Vdiag, tol*tol/vmax)
+        Vdiag[toScreen] = 0.0
+
+    while True:
+        imax = np.argmax(Vdiag); vmax = Vdiag[imax]
+        print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax) )
+        if(vmax<tol or choleskyNum==nbasis*nbasis):
+            print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
+            print('\n')
+            break
+        else:
+            oneVec = _V_row_MO(mol, C, imax, CVlist=choleskyVecMO)/np.sqrt(vmax) # TODO: need to sub CVs in row!
+            if debug:
+                print("\n***debugging info*** \n")
+                print("imax: ", imax, " (i,l) ", (imax // nbasis, imax % nbasis))
+                print("vmax: ", vmax)
+                print("V[imax]", V[imax])
+                print("full V[imax]", Vorig[imax])
+            choleskyVecMO.append( oneVec )
+            choleskyNum+=1
+            #V -= np.dot(oneVec[:, None], oneVec[None,:]) # this won't work since we are not storing the full V tensor
+            Vdiag -= oneVec**2
+            if prescreen:
+                Vdiag = dampedPrescreenCond(Vdiag, vmax, tol)
+            if debug:
+                print("oneVec: ", oneVec)
+                print("oneVec**2: ", oneVec**2)
+                print("Vdiag: ", Vdiag)
+
+    return choleskyNum, choleskyVecMO
