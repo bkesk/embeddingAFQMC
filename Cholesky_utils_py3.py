@@ -1,12 +1,15 @@
-
 import numpy as np
 import sys
+import logging
+
 import pyscf
-from   pyscf  import ao2mo, scf, gto
+from pyscf  import ao2mo, scf, gto
 from pyscf.gto import getints_by_shell
 
 from V2b_inspect import load_V2b_dump, save_V2b_dump, sym_2d_unpack, sym_2d_pack
 import pyqmc.matrices.gms as gms
+
+
 
 def save_choleskyList_GAFQMCformat(Ncv, M, CVlist, outfile="V2b_AO_cholesky.mat"):
     '''
@@ -1217,3 +1220,72 @@ def getCholeskyAO_MOBasis_NoIO(mol, C, tol=1e-8, prescreen=True, debug=False):
                 print("Vdiag: ", Vdiag)
 
     return choleskyNum, choleskyVecMO
+
+def make_green_func(Phi, Psi, debug=False):
+    O = np.matmul(Psi.conj().T, Phi)
+    if debug:
+        print(f'overlap of Phi and Ps is {np.linalg.det}')
+    Oinv = np.linalg.inv(O)
+    Theta = np.matmul(Phi, Oinv)
+    G = np.matmul(Theta, Psi.conj().T)
+    return G
+
+def get_embedding_potential(mol, C, nfc, Nel, MA, debug=False):
+    '''
+    computes the effective 1-body embedding potential V^{I_A}_{il}
+
+    Inputs:
+    mol - Pyscf molecule object describing the system
+    C - array containing the basis orbitals - including both inactive, and active occupied orbitals!
+    nfc - number of orbitals to freeze : the first nfc orbitals (that is C[:,0:nfc]) are forzen
+    Nel - total number of !!doubly ocupied!! electrons 
+    MA - number of active orbitals
+
+    returns:
+    VIA - embedding potential
+    EI - constant interaction energy of Inactive orbitals
+
+    IDEAS:
+    - use get Veff from mf object? -> doesn't use transformed Veff!
+
+    '''
+
+    
+    if debug:
+    #    logging.basicConfig(filename='debug.log',level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG)
+    
+    M = mol.nao_nr()
+    Nshell = mol.nbas
+    offset = gto.ao_loc_nr(mol)
+
+    C_core = C[:,:nfc]
+    G_core = make_green_func(C_core, C_core)
+    C_active =C[:, nfc:] # assuming C has already had virtuals truncated!
+
+    if debug:
+        logging.debug(f' nfc, Nel, MA : {nfc}, {Nel}, {MA}')
+        logging.debug(f'G_core : {G_core}')
+
+    # get intermediate results
+    VmnkL = np.zeros((M,M,MA,nfc)) # used for both Vd and Vx
+    for mu in range(Nshell):
+        for nu in range(Nshell):
+            # get V[mu,:,nu,:] in Chemist's index convention = V(mu,nu,:,:) in Physicist's
+            ints = GTO_ints_shellInd(mol, shell_range=[mu,mu+1,0,Nshell,nu,nu+1,0,Nshell])
+            if debug:
+                logging.debug(f' shape of ints {ints.shape}')
+                logging.debug(f' shape of C_core {C_core.shape}')
+                logging.debug(f' shape of C_active {C_active.shape}')
+                logging.debug(f' shape of VmnkL {VmnkL.shape}')
+            VmnkL[offset[mu]:offset[mu+1],offset[nu]:offset[nu+1],:,:] = \
+                    np.einsum('dg,dl,gk->kl',ints[0,:,0,:],C_core,C_active,optimize='optimal')
+    
+    Vd = np.einsum('im,jn,mnkl,il->jk',C_core.conj().T,C_active.conj().T,VmnkL,G_core,optimize='optimal')
+    Vx = np.einsum('im,jn,mnkl,jl->ik',C_active.conj().T,C_core.conj().T,VmnkL,G_core,optimize='optimal')
+
+    if debug:
+        logging.debug(f'Vd : {Vd}')
+        logging.debug(f'Vx : {Vx}')
+
+    return 2*Vd - Vx
