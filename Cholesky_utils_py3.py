@@ -1243,11 +1243,9 @@ def get_embedding_potential(mol, C, nfc, Nel, MA, debug=False):
 
     returns:
     VIA - embedding potential
-    EI - constant interaction energy of Inactive orbitals
 
     IDEAS:
     - use get Veff from mf object? -> doesn't use transformed Veff!
-
     '''
 
     
@@ -1260,12 +1258,15 @@ def get_embedding_potential(mol, C, nfc, Nel, MA, debug=False):
     offset = gto.ao_loc_nr(mol)
 
     C_core = C[:,:nfc]
+    C_CoreDag = C_core.conj().T
     G_core = make_green_func(C_core, C_core)
     C_active =C[:, nfc:] # assuming C has already had virtuals truncated!
 
     if debug:
         logging.debug(f' nfc, Nel, MA : {nfc}, {Nel}, {MA}')
-        logging.debug(f'G_core : {G_core}')
+        #logging.debug(f'G_core : {G_core}')
+
+    first=True
 
     # get intermediate results
     VmnkL = np.zeros((M,M,MA,nfc)) # used for both Vd and Vx
@@ -1273,17 +1274,74 @@ def get_embedding_potential(mol, C, nfc, Nel, MA, debug=False):
         for nu in range(Nshell):
             # get V[mu,:,nu,:] in Chemist's index convention = V(mu,nu,:,:) in Physicist's
             ints = GTO_ints_shellInd(mol, shell_range=[mu,mu+1,0,Nshell,nu,nu+1,0,Nshell])
-            if debug:
+            if debug and first:
+                first=False
                 logging.debug(f' shape of ints {ints.shape}')
                 logging.debug(f' shape of C_core {C_core.shape}')
+                logging.debug(f' shape of C_core.conj().T {C_core.conj().T.shape}')
                 logging.debug(f' shape of C_active {C_active.shape}')
+                logging.debug(f' shape of C_active.conj().T {C_active.conj().T.shape}')
                 logging.debug(f' shape of VmnkL {VmnkL.shape}')
             VmnkL[offset[mu]:offset[mu+1],offset[nu]:offset[nu+1],:,:] = \
                     np.einsum('dg,dl,gk->kl',ints[0,:,0,:],C_core,C_active,optimize='optimal')
-    
-    Vd = np.einsum('im,jn,mnkl,il->jk',C_core.conj().T,C_active.conj().T,VmnkL,G_core,optimize='optimal')
-    Vx = np.einsum('im,jn,mnkl,jl->ik',C_active.conj().T,C_core.conj().T,VmnkL,G_core,optimize='optimal')
 
+    # __bookmark__
+    # TODO : BUG : index ordering seems to be incorrect!
+    Vd = np.einsum('im,jn,mnkl,il->jk',C_core.conj().T, C_active.conj().T, VmnkL,G_core,optimize='greedy')
+    Vx = np.einsum('im,jn,mnkl,jl->ik',C_active.conj().T, C_core.conj().T, VmnkL,G_core,optimize='greedy')
+    
+    if debug:
+        logging.debug(f'Vd : {Vd}')
+        logging.debug(f'Vx : {Vx}')
+
+    return 2*Vd - Vx
+
+def get_embedding_constant(mol, C, nfc, debug=False):
+    '''
+    computes the constant two-body interactions among frozen electrons
+
+    Inputs:
+    mol - Pyscf molecule object describing the system
+    C - array containing the basis orbitals - including both inactive, and active occupied orbitals!
+    nfc - number of orbitals to freeze : the first nfc orbitals (that is C[:,0:nfc]) are forzen
+  
+    returns:
+    EI - constant interaction energy of Inactive orbitals
+
+    TODO:
+    optimize a bit - using a lazy implementation
+    > add option to treat Green's function as non-diagonal 
+    '''
+
+    
+    if debug:
+    #    logging.basicConfig(filename='debug.log',level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG)
+    
+    M = mol.nao_nr()
+    Nshell = mol.nbas
+    offset = gto.ao_loc_nr(mol)
+
+    Cfc = C[:,:nfc]
+    Cfc_dag = Cfc.conj().T
+
+    Vd=0.0
+    Vx=0.0
+
+    first=True
+    
+    for mu in range(Nshell):
+        for nu in range(Nshell):
+            # get V[mu,:,nu,:] in Chemist's index convention = V(mu,nu,:,:) in Physicist's
+            ints = GTO_ints_shellInd(mol, shell_range=[mu,mu+1,0,Nshell,nu,nu+1,0,Nshell])
+            if debug and first:
+                first=False
+                logging.debug(f' shape of ints {ints.shape}')
+                logging.debug(f' shape of Cfc_dag {Cfc_dag.shape}')
+                logging.debug(f' shape of Cfc {Cfc.shape}')
+            Vd+=np.einsum('im,jn,mdng,gj,di->',Cfc_dag[:,offset[mu]:offset[mu+1]],Cfc_dag[:,offset[nu]:offset[nu+1]],ints,Cfc,Cfc,optimize='optimal')
+            Vx+=np.einsum('im,jn,mdng,gi,dj->',Cfc_dag,Cfc_dag,ints,Cfc,Cfc,optimize='optimal')
+    
     if debug:
         logging.debug(f'Vd : {Vd}')
         logging.debug(f'Vx : {Vx}')
