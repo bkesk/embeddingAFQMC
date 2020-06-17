@@ -1221,11 +1221,15 @@ def getCholeskyAO_MOBasis_NoIO(mol, C, tol=1e-8, prescreen=True, debug=False):
 
     return choleskyNum, choleskyVecMO
 
-def make_green_func(Phi, Psi, debug=False):
-    # TODO: needs overlap matrix for general case!!
-    O = np.matmul(Psi.conj().T, Phi)
+
+def make_green_func(Phi, Psi, S=None, debug=False):
+    # Assumes that Phi and Psi are represented in an orthonormal basis!
+    if S is None:
+        S = np.eye(Phi.shape[0])
+    O = np.matmul(Psi.conj().T,S)
+    O = np.matmul(O,Phi)
     if debug:
-        print(f'overlap of Phi and Ps is {np.linalg.det}')
+        print(f'overlap of Phi and Psi is {np.linalg.det(O)}')
     Oinv = np.linalg.inv(O)
     Theta = np.matmul(Phi, Oinv)
     G = np.matmul(Theta, Psi.conj().T)
@@ -1260,7 +1264,7 @@ def get_embedding_potential(mol, C, nfc, Nel, MA, debug=False):
 
     C_core = C[:,:nfc]
     C_CoreDag = C_core.conj().T
-    G_core = make_green_func(C_core, C_core)
+    G_core = make_green_func(C_core, C_core,debus=True)
     C_active =C[:, nfc:] # assuming C has already had virtuals truncated!
 
     if debug:
@@ -1327,7 +1331,7 @@ def get_embedding_potential_2(mol, C, nfc, Nel, MA, debug=False):
     C_core = C[:,:nfc]
     C_CoreDag = C_core.conj().T
     # TODO: give the make_green_func function to use an overlap matrix!
-    #G_core = make_green_func(C_core, C_core) #TODO: restirct to core only!!
+    #G_core = make_green_func(C_core, C_core, debug=debug) #TODO: restirct to core only!!
     G_core = np.eye(nfc)# temporary fix!
     logging.debug(f'shape of G_core {G_core.shape}')
     logging.debug(f'G = {G_core}')
@@ -1442,3 +1446,40 @@ def get_embedding_constant(mol, C, nfc, debug=False):
         logging.debug(f'Vx : {Vx}')
 
     return 2*Vd - Vx
+
+def get_one_body_embedding(mol, C, nfc, debug=False):
+    '''
+    Computes and returns the contributions to the embedding / downfolding Hamiltonian due to the one-body terms in the full Hilbert space
+    
+    Inputs:
+    mol - Pyscf molecule object describing the system
+    C - array containing the basis orbitals - including both inactive, and active occupied orbitals!
+    nfc - number of orbitals to freeze : the first nfc orbitals (that is C[:,0:nfc]) are forzen
+  
+    returns:
+
+    K_active - one-body Hamiltonian terms in the active space (not including the effective one-body embedding potential from two-body interactions - use 'get_embedding_potential' instead
+    EI_K - constant energy, due to frozen electrons, from K
+
+    '''
+    if debug:
+        logging.basicConfig(level=logging.DEBUG)
+
+    MA = C.shape[1] - nfc
+
+    # get full one-body Hamiltonian
+    K = get_one_body_H(mol)
+    S = get_ovlp(mol)
+
+    # K_active is simply K within the chosen active space with no extra transforms
+    K_active = K[nfc:nfc+MA,nfc:nfc+MA]
+    logging.debug(f' get_one_body_embedding : K_active shape : {K_active.shape}')
+    
+    # get G_Core_{IL}
+    G_core = make_green_func(C[:,:nfc],C[:,:nfc])[:nfc, :nfc]
+    logging.debug(f' get_one_body_embedding : G_core : {G_core.shape}')
+
+    # EI_K is given by K_{IL} * G{IL}
+    EI_K = np.trace(np.matmul(K[:nfc,:nfc],G_core))
+    
+    return K_active, EI_K
