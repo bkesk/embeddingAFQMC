@@ -73,7 +73,7 @@ def load_choleskyList_3_IndFormat(infile="V2b_AO_cholesky.mat",verb=False):
         if verb:
             print ("vector ", i)
         # convert from a 1-D vector, to a MxM matrix rep.
-        # insert factor of sqrt(2) (pyscf and GAFQMC use different conentions concerning including/exclding the factor of 1/2 in the matrix elements        
+        # insert factor of sqrt(2) (pyscf and GAFQMC use different conventions concerning including/exclding the factor of 1/2 in the matrix elements        
         Lmat = sym_2d_unpack(CV_LD[i])*np.sqrt(2) #CVlist[i].reshape(M,M)*(1/np.sqrt(2)))
         if verb: 
             print (Lmat.shape)
@@ -1467,12 +1467,15 @@ def get_one_body_embedding(mol, C, nfc, debug=False):
 
     MA = C.shape[1] - nfc
 
+    logging.debug(f' get_one_body_embedding : C shape : {C.shape}')
+    logging.debug(f' get_one_body_embedding : MA : {MA}')
+
     # get full one-body Hamiltonian
     K = get_one_body_H(mol)
     S = get_ovlp(mol)
-
+    
     # K_active is simply K within the chosen active space with no extra transforms
-    K_active = K[nfc:nfc+MA,nfc:nfc+MA]
+    K_active = np.einsum('im,mn,nl->il', C.conj().T[nfc:,:],K,C[:,nfc:]) #K[nfc:nfc+MA,nfc:nfc+MA]
     logging.debug(f' get_one_body_embedding : K_active shape : {K_active.shape}')
     
     # get G_Core_{IL}
