@@ -1150,9 +1150,9 @@ def getCholeskyAO_MOBasis_NoIO(mol, C, tol=1e-8, prescreen=True, debug=False):
         Returns:
         The diagonal of V in the specified MO basis 
         '''
-        return V_diagonal_MO(mol, C)
+        return V_diagonal_MO(mol, C, verb)
         
-    def _V_row_MO(mol, C, index, CVlist):
+    def _V_row_MO(mol, C, index, CVlist, verb=False):
 
         def CV_row(index,CVlist,M):
             '''
@@ -1173,7 +1173,7 @@ def getCholeskyAO_MOBasis_NoIO(mol, C, tol=1e-8, prescreen=True, debug=False):
             return Sum.reshape((M*M))
 
         M = C.shape[1]
-        return V_row_MO(mol, C, index) - CV_row(index, CVlist,M)
+        return V_row_MO(mol, C, index, verb) - CV_row(index, CVlist,M)
 
     def print_msg(tol, prescreen):
         '''
@@ -1192,7 +1192,7 @@ def getCholeskyAO_MOBasis_NoIO(mol, C, tol=1e-8, prescreen=True, debug=False):
 
     nbasis  = mol.nao_nr()
     choleskyVecMO = []; choleskyNum = 0
-    Vdiag = _V_diagonal_MO(mol, C)
+    Vdiag = _V_diagonal_MO(mol, C, verb=debug)
 
     if debug:
         print("Initial Vdiag: ", Vdiag)
@@ -1210,13 +1210,11 @@ def getCholeskyAO_MOBasis_NoIO(mol, C, tol=1e-8, prescreen=True, debug=False):
             print('\n')
             break
         else:
-            oneVec = _V_row_MO(mol, C, imax, CVlist=choleskyVecMO)/np.sqrt(vmax) # TODO: need to sub CVs in row!
+            oneVec = _V_row_MO(mol, C, imax, CVlist=choleskyVecMO, verb=debug)/np.sqrt(vmax) # TODO: need to sub CVs in row!
             if debug:
                 print("\n***debugging info*** \n")
                 print("imax: ", imax, " (i,l) ", (imax // nbasis, imax % nbasis))
                 print("vmax: ", vmax)
-                print("V[imax]", V[imax])
-                print("full V[imax]", Vorig[imax])
             choleskyVecMO.append( oneVec )
             choleskyNum+=1
             #V -= np.dot(oneVec[:, None], oneVec[None,:]) # this won't work since we are not storing the full V tensor
