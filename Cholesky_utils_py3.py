@@ -1360,7 +1360,7 @@ def get_embedding_potential_2(mol, C, nfc, Nel, MA, debug=False):
                 logging.debug(f' shape of C_active.conj().T {C_active.conj().T.shape}')
                 logging.debug(f' shape of VmnkL {VmnkL.shape}')
             VmnkL[offset[mu]:offset[mu+1],offset[nu]:offset[nu+1],:,:] = \
-                    np.einsum('dg,dl,gk->kl',ints[0,:,0,:],C_core,C_active,optimize='optimal')
+                    np.einsum('mdng,dl,gk->mnkl',ints[:,:,:,:],C_core,C_active,optimize='optimal') 
 
     # __bookmark__
     #Vd = np.einsum('im,jn,mnkl,il->jk',C_core.conj().T, C_active.conj().T, VmnkL,G_core,optimize='greedy')
@@ -1411,9 +1411,7 @@ def get_embedding_constant(mol, C, nfc, debug=False):
     > add option to treat Green's function as non-diagonal 
     '''
 
-    
     if debug:
-    #    logging.basicConfig(filename='debug.log',level=logging.DEBUG)
         logging.basicConfig(level=logging.DEBUG)
     
     M = mol.nao_nr()
@@ -1432,13 +1430,13 @@ def get_embedding_constant(mol, C, nfc, debug=False):
         for nu in range(Nshell):
             # get V[mu,:,nu,:] in Chemist's index convention = V(mu,nu,:,:) in Physicist's
             ints = GTO_ints_shellInd(mol, shell_range=[mu,mu+1,0,Nshell,nu,nu+1,0,Nshell])
-            if debug and first:
+            if debug and first: 
                 first=False
                 logging.debug(f' shape of ints {ints.shape}')
                 logging.debug(f' shape of Cfc_dag {Cfc_dag.shape}')
                 logging.debug(f' shape of Cfc {Cfc.shape}')
             # we are using the offsets below because we are accessing the ints shell-by-shell here in mu, nu indices, but full basis in gamma, delta indices
-            Vd+=np.einsum('im,jn,mdng,gj,di->',Cfc_dag[:,offset[mu]:offset[mu+1]],Cfc_dag[:,offset[nu]:offset[nu+1]],ints,Cfc,Cfc,optimize='optimal')
+            Vd+=np.einsum('im,jn,mdng,gj,di->',Cfc_dag[:,offset[mu]:offset[mu+1]],Cfc_dag[:,offset[nu]:offset[nu+1]],ints,Cfc,Cfc,optimize='optimal') #TODO: only run optimize on first runs then save/reuse the path!
             Vx+=np.einsum('im,jn,mdng,gi,dj->',Cfc_dag[:,offset[mu]:offset[mu+1]],Cfc_dag[:,offset[nu]:offset[nu+1]],ints,Cfc,Cfc,optimize='optimal')
     
     if debug:
