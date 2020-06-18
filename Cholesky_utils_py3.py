@@ -1479,10 +1479,11 @@ def get_one_body_embedding(mol, C, nfc, debug=False):
     logging.debug(f' get_one_body_embedding : K_active shape : {K_active.shape}')
     
     # get G_Core_{IL}
-    G_core = make_green_func(C[:,:nfc],C[:,:nfc])[:nfc, :nfc]
+    G_core = np.eye(nfc) # make_green_func(C[:,:nfc],C[:,:nfc])[:nfc, :nfc]
     logging.debug(f' get_one_body_embedding : G_core : {G_core.shape}')
 
-    # EI_K is given by K_{IL} * G{IL}
-    EI_K = np.trace(np.matmul(K[:nfc,:nfc],G_core))
-    
+    # EI_K is given by K_{IL} * G{IL} - wrong! should be [C^dag K C]_{II} since K is in GTO basis
+    #EI_K = np.trace(np.matmul(K[:nfc,:nfc],G_core))
+    EI_K = np.einsum('im,mn,ni->',C.conj().T[:nfc,:],K,C[:,:nfc])
+
     return K_active, EI_K
