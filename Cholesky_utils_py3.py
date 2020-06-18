@@ -903,10 +903,20 @@ def getCholesky_OnTheFly_MOBasis(C, mol=None, tol=1e-8, prescreen=True, debug=Fa
 def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, erifile='temp_eri.h5'):    
     def v_diagonal_file(erifile):
         # efficiently read the integrals from the hdf5 file
+        f = h5.File(erifile,"a")
+        shape = f['/eri_mo'].shape
+        diag_index = np.zeros(shape[0])
+        for i in range(shape[0]):
+            diag_index[i] = [i]
+        diag = f['/eri_mo'][diag_index,diag_index] # attempting to use 'fancy indexing'
+        f.close()
         return diag
 
-    def v_row_file(erifile):
+    def v_row_file(erifile, ind):
         # efficiently read the integrals from the hdf5 file
+        f = h5.File(erifile,"a")
+        row = f['/eri_mo'][ind, :]
+        f.close()
         return row
    
     nbasis  = mol.nao_nr()
@@ -919,8 +929,7 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
     #            of the GTO basis integrals\
 
     # FIRST CHECK IF WE ALREADY HAVE THE ERIFILE!!
-    eri = mol.ao2mo(C, erifile=erifile)
-    print(f'[DEV] : {eri.shape}')
+    ao2mo.outcore.full(mol, C, erifile, dataname='new', compact=False)
     
     choleskyVecAO = []; choleskyNum = 0
     Vdiag = v_diagonal_file(erifile) #V.diagonal().copy()
