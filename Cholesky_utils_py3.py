@@ -1,4 +1,5 @@
 import numpy as np
+import h5py as h5
 import sys
 import logging
 
@@ -904,18 +905,18 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
     def v_diagonal_file(erifile):
         # efficiently read the integrals from the hdf5 file
         f = h5.File(erifile,"a")
-        shape = f['/eri_mo'].shape
+        shape = f['/new'].shape
         diag_index = np.zeros(shape[0])
         for i in range(shape[0]):
             diag_index[i] = [i]
-        diag = f['/eri_mo'][diag_index,diag_index] # attempting to use 'fancy indexing'
+        diag = f['/new'][diag_index,diag_index] # attempting to use 'fancy indexing'
         f.close()
         return diag
 
     def v_row_file(erifile, ind):
         # efficiently read the integrals from the hdf5 file
         f = h5.File(erifile,"a")
-        row = f['/eri_mo'][ind, :]
+        row = f['/new'][ind, :]
         f.close()
         return row
    
@@ -943,7 +944,7 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
 
     while True:
         imax = np.argmax(Vdiag); vmax = Vdiag[imax]
-        print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax) )
+        print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax), flush=True ) # temporary for testing! remove flush=True (does it really make a performace difference, maybe keep?)
         if(vmax<tol or choleskyNum==nbasis*nbasis):
             print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
             print('\n')
