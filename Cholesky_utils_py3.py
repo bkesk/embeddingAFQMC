@@ -905,11 +905,12 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
     def v_diagonal_file(erifile):
         # efficiently read the integrals from the hdf5 file
         f = h5.File(erifile,"a")
-        shape = f['/new'].shape
-        diag_index = np.zeros(shape[0])
-        for i in range(shape[0]):
-            diag_index[i] = [i]
-        diag = f['/new'][diag_index,diag_index] # attempting to use 'fancy indexing'
+        #shape = f['/new'].shape
+        #diag_index = np.zeros(shape[0])
+        #for i in range(shape[0]):
+        #    diag_index[i] = i
+        #diag = f['/new'][diag_index,diag_index] # attempting to use 'fancy indexing'
+        diag = f['/new'][...].diagonal().copy()
         f.close()
         return diag
 
