@@ -901,7 +901,7 @@ def getCholesky_OnTheFly_MOBasis(C, mol=None, tol=1e-8, prescreen=True, debug=Fa
 
     return choleskyNum, choleskyVecAO
 
-def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, erifile='temp_eri.h5'):    
+def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, erifile='temp_eri.h5', make_erifile=True):    
     def v_diagonal_file(erifile):
         # efficiently read the integrals from the hdf5 file
         f = h5.File(erifile,"a")
@@ -937,7 +937,6 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
         # efficiently read the integrals from the hdf5 file
         f = h5.File(erifile,"a")
         row = f['/new'][ind].copy()
-        print(f'  row  from eri file : {row} ')
         f.close()
         return row - CV_row(ind, CVlist, M)
    
@@ -951,9 +950,9 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
     # 06042020 - I think we need all of the ERIs, since even the diagonal of Vijkl involes each
     #            of the GTO basis integrals\
 
-    # FIRST CHECK IF WE ALREADY HAVE THE ERIFILE!!
-    ao2mo.outcore.full(mol, C, erifile, dataname='new', compact=False)
-    
+    if make_erifile:
+        ao2mo.outcore.full(mol, C, erifile, dataname='new', compact=False)
+        
     choleskyVecAO = []; choleskyNum = 0
     Vdiag = v_diagonal_file(erifile) #V.diagonal().copy()
     if debug:
