@@ -910,18 +910,39 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
         #for i in range(shape[0]):
         #    diag_index[i] = i
         #diag = f['/new'][diag_index,diag_index] # attempting to use 'fancy indexing'
-        diag = f['/new'][...].diagonal().copy()
+        diag = f['/new'][...].diagonal().copy() # [?] why do I need copy here?
         f.close()
         return diag
 
-    def v_row_file(erifile, ind):
+    def v_row_file(erifile, ind, CVlist, M):
+
+        def CV_row(index,CVlist,M):
+            '''
+            compute row at index 'index' using the current list of Cholesky Vectors 'CVlist'
+            
+            Note: untested!
+            '''
+            Sum = np.zeros((M,M))
+            #i = index // M
+            #l = index % M
+            for gamma in range(len(CVlist)):
+                L = CVlist[gamma]
+                #print(f'[Debug] : _V_row_MO() -> CV_row() -> L = {L}')
+                Ldag = L.reshape((M,M)).conj().T
+                #print(f'[Debug] : _V_row_MO() -> CV_row() -> Ldag = {Ldag}')
+                Sum += L[index]*Ldag
+                #print(f'[Debug] : _V_row_MO() -> CV_row() -> Sum = {Sum}')
+            return Sum.reshape((M*M))
+
         # efficiently read the integrals from the hdf5 file
         f = h5.File(erifile,"a")
-        row = f['/new'][ind, :]
+        row = f['/new'][ind].copy()
+        print(f'  row  from eri file : {row} ')
         f.close()
-        return row
+        return row - CV_row(ind, CVlist, M)
    
     nbasis  = mol.nao_nr()
+    nactive = C.shape[1]
     # be more careful, this is will use a very large amount of memory!
     #eri = scf._vhf.int2e_sph(mol._atm,mol._bas,mol._env)
     #V   = ao2mo.restore(1, eri, nbasis)
@@ -946,21 +967,19 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
     while True:
         imax = np.argmax(Vdiag); vmax = Vdiag[imax]
         print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax), flush=True ) # temporary for testing! remove flush=True (does it really make a performace difference, maybe keep?)
-        if(vmax<tol or choleskyNum==nbasis*nbasis):
+        if(vmax<tol or choleskyNum==nactive*nactive):
             print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
             print('\n')
             break
         else:
-            oneVec = V_row_file(erifile, imax)/np.sqrt(vmax)
+            oneVec = v_row_file(erifile, imax, choleskyVecAO, nactive)/np.sqrt(vmax)
             if debug:
                 print("\n***debugging info*** \n")
-                print("imax: ", imax, " (i,l) ", (imax // nbasis, imax % nbasis))
+                print("imax: ", imax, " (i,l) ", (imax // nactive, imax % nactive))
                 print("vmax: ", vmax)
-                print("V[imax]", V[imax])
-                print("full V[imax]", Vorig[imax])
             choleskyVecAO.append( oneVec )
             choleskyNum+=1
-            V -= np.dot(oneVec[:, None], oneVec[None,:])
+            #V -= np.dot(oneVec[:, None], oneVec[None,:])
             Vdiag -= oneVec**2
             if prescreen:
                 Vdiag = dampedPrescreenCond(Vdiag, vmax, tol)
@@ -1192,7 +1211,8 @@ def getCholeskyAO_MOBasis_NoIO(mol, C, tol=1e-8, prescreen=True, debug=False):
 
     print_msg(tol, prescreen)
 
-    nbasis  = mol.nao_nr()
+    nbasis  = mol.nao_nr() # [?] needed?
+    nactive = C.shape[1]
     choleskyVecMO = []; choleskyNum = 0
     Vdiag = _V_diagonal_MO(mol, C, verb=debug)
 
@@ -1207,7 +1227,7 @@ def getCholeskyAO_MOBasis_NoIO(mol, C, tol=1e-8, prescreen=True, debug=False):
     while True:
         imax = np.argmax(Vdiag); vmax = Vdiag[imax]
         print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax) )
-        if(vmax<tol or choleskyNum==nbasis*nbasis):
+        if(vmax<tol or choleskyNum==nactive*nactive):
             print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
             print('\n')
             break
@@ -1215,7 +1235,7 @@ def getCholeskyAO_MOBasis_NoIO(mol, C, tol=1e-8, prescreen=True, debug=False):
             oneVec = _V_row_MO(mol, C, imax, CVlist=choleskyVecMO, verb=debug)/np.sqrt(vmax) # TODO: need to sub CVs in row!
             if debug:
                 print("\n***debugging info*** \n")
-                print("imax: ", imax, " (i,l) ", (imax // nbasis, imax % nbasis))
+                print("imax: ", imax, " (i,l) ", (imax // nactive, imax % nactive))
                 print("vmax: ", vmax)
             choleskyVecMO.append( oneVec )
             choleskyNum+=1
