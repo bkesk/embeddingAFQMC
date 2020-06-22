@@ -1422,6 +1422,73 @@ def get_embedding_potential_2(mol, C, nfc, Nel, MA, debug=False):
 
     return 2*Vd - Vx
 
+
+def get_embedding_potential_useh5(mol, C, nfc, Nel, MA, debug=False, make_erifile=True):
+    '''
+    computes the effective 1-body embedding potential V^{I_A}_{il}, using pyscf's interface to libcint, and ao2mo for 
+    GTO integrals, and integral transformations, respectively
+
+    Inputs:
+    mol - Pyscf molecule object describing the system
+    C - array containing the basis orbitals - including both inactive, and active occupied orbitals!
+    nfc - number of orbitals to freeze : the first nfc orbitals (that is C[:,0:nfc]) are forzen
+    Nel - total number of !!doubly ocupied!! electrons 
+    MA - number of active orbitals
+
+    returns:
+    VIA - embedding potential
+    '''
+
+    
+    if debug:
+        logging.basicConfig(level=logging.DEBUG)
+    
+    M = mol.nao_nr()
+    Nshell = mol.nbas
+    offset = gto.ao_loc_nr(mol)
+
+    C_core = C[:,:nfc]
+    C_CoreDag = C_core.conj().T
+
+    G_core = np.eye(nfc)# temporary fix!
+    logging.debug(f'shape of G_core {G_core.shape}')
+    logging.debug(f'G = {G_core}')
+    C_active =C[:, nfc:] # assuming C has already had virtuals truncated!
+
+    if debug:
+        logging.debug(f' nfc, Nel, MA : {nfc}, {Nel}, {MA}')
+
+    first=True
+
+    # compute the direct term as G_{I L} * V_{I j k L} -> Pyscf (Chemists') notation, want (IL|jk) mo integrals
+    print('[+] computing Vd ...')
+    if make_erifile:
+        ao2mo.outcore.general(mol, (C_core,C_core,C_active,C_active), erifile='eri_coreValence.h5', dataname='direct', compact=False, aosym=1)
+    f = h5.File('eri_coreValence.h5', 'r')
+    eri_mo = f['/direct'][...].reshape((nfc,nfc,MA,MA))
+    Vd = np.einsum('il,iljk->jk',G_core,eri_mo)
+    if debug:
+        logging.debug(f' shape of Vd {Vd.shape}')
+    f.close()
+
+    # compute the direct term as G_{I L} * V_{i J k L} -> Pyscf (Chemists') notation, want (iL|Jk) mo integrals
+    print('[+] computing Vx ...')
+    if make_erifile:
+        ao2mo.outcore.general(mol, (C_active,C_core,C_core,C_active), erifile='eri_coreValence.h5', dataname='exchange', compact=False, aosym=1)
+    f = h5.File('eri_coreValence.h5', 'r')
+    eri_mo = f['/exchange'][...].reshape((MA,nfc,nfc,MA))
+    Vx = np.einsum('jl,iljk->ik',G_core,eri_mo)
+    if debug:
+        logging.debug(f' shape of Vx {Vx.shape}')
+    f.close()
+
+    if debug:
+        logging.debug(f'Vd : {Vd}')
+        logging.debug(f'Vx : {Vx}')
+
+    return 2*Vd - Vx
+
+
 def get_embedding_constant_useh5(mol, C, nfc, debug=False, make_erifile=True):
     '''
     computes the constant two-body interactions among frozen electrons
