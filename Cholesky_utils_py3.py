@@ -49,7 +49,7 @@ def load_choleskyList_GAFQMCformat(infile="V2b_AO_cholesky.mat", verb=False):
             print ("vector ", i)
         # convert from a 1-D vector, to a MxM matrix rep.
         # insert factor of sqrt(2) (pyscf and GAFQMC use different conentions concerning including/exclding the factor of 1/2 in the matrix elements        
-        Lmat = sym_2d_unpack(CV_LD[i])*np.sqrt(2) #CVlist[i].reshape(M,M)*(1/np.sqrt(2)))
+        Lmat = sym_2d_unpack(CV_LD[i])*np.sqrt(2)
         if verb:
             print (Lmat.shape)
         CVarray[i] = Lmat.flatten()
@@ -90,7 +90,7 @@ def save_oneBody_gms(M, K, S, outfile='one_body_gms'):
     '''
     O = gms.OneBodyGms()
     O.nbasis = M
-    O.S = S #numpy.eye(O.nbasis)
+    O.S = S
     O.H1 = K
     O.write(outfile)
 
@@ -104,11 +104,10 @@ def load_oneBody_gms(infile='one_body_gms'):
     return O.nbasis, O.H1, O.S
 
 def get_ovlp(mol, verb=False):
-    # TODO: we can choose the intor string based on pyscf version
     try:
-        S = mol.intor_symmetric('int1e_ovlp') # this works only for more recent versions of pyscf: as of 9/17/2019
+        S = mol.intor_symmetric('int1e_ovlp')
     except:
-        S = mol.intor_symmetric('cint1e_ovlp_sph') # this is older syntax, but still seems to work
+        S = mol.intor_symmetric('cint1e_ovlp_sph') 
     if verb:
         print (S)
     return S
@@ -131,10 +130,9 @@ def get_one_body_H(mol, verb=False):
 def save_oneBody_gms(M, K, S, outfile="one_body_gms"):
     O = gms.OneBodyGms()
     O.nbasis = M
-    O.S = S # numpy.eye(O.nbasis)
+    O.S = S
     O.H1 = K
     O.write(outfile)
-
 
 def map_shellIndex(mol):
     '''
@@ -176,7 +174,6 @@ def V2b_diagonal(mol, intor_name='int2e_sph', verb=None):
     if verb > 5:
         print("# of shells: ", nShells)
    
-    #Vdiag = []
     Vdiag =np.zeros(nbasis*nbasis)
 
     index_Map = map_shellIndex(mol)
