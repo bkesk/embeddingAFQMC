@@ -1537,6 +1537,43 @@ def get_embedding_constant_useh5(mol, C, nfc, debug=False, make_erifile=True):
     f.close()
     return 2*Vd - Vx
 
+def get_embedding_constant_incore(mol, C, nfc, debug=False):
+    '''
+    computes the constant two-body interactions among frozen electrons, using the incore (pyscf) ao2mo transformation 
+
+    Inputs:
+    mol - Pyscf molecule object describing the system
+    C - array containing the basis orbitals - including both inactive, and active occupied orbitals!
+    nfc - number of orbitals to freeze : the first nfc orbitals (that is C[:,0:nfc]) are forzen
+  
+    returns:
+    EI - constant interaction energy of Inactive orbitals
+    '''
+
+    if debug:
+        logging.basicConfig(level=logging.DEBUG)
+    
+    M = mol.nao_nr()
+    Nshell = mol.nbas
+    offset = gto.ao_loc_nr(mol)
+
+    Cfc = C[:,:nfc]
+    Cfc_dag = Cfc.conj().T
+
+    eri_mo = ao2mo.incore.full(mol, Cfc, compact=False)
+
+    Vd=0.0
+    Vx=0.0
+
+    Vd+=np.einsum('iijj->',eri_mo)
+    Vx+=np.einsum('ijji->',eri_mo)
+
+    if debug:
+        logging.debug(f'Vd : {Vd}')
+        logging.debug(f'Vx : {Vx}')
+
+    return 2*Vd - Vx
+
 def get_embedding_constant(mol, C, nfc, debug=False):
     '''
     computes the constant two-body interactions among frozen electrons
