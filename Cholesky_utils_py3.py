@@ -270,7 +270,6 @@ def V2b_row(mol, mu, CVlist=None, intor_name='int2e_sph', verb=None):
             '''
             Builds just the mu^th row of the V_{mu nu} tensor, using the Cholesky Vectors.
             '''
-            #verb = 7 # TEMP HACK
             if verb > 6:
                 print("DEBUG: from 'build_row()': mu =" , mu)
             Vrow = np.zeros((M*M))
@@ -289,7 +288,7 @@ def V2b_row(mol, mu, CVlist=None, intor_name='int2e_sph', verb=None):
                 Vrow += Amu*Adag.reshape((M*M))
             if verb > 6:
                 print("DEBUG: from 'build_row()': Vrow =" , Vrow)
-            return Vrow#.reshape((M*M))
+            return Vrow
 
         Ncv = len(CVlist)
         if verb > 4:
@@ -301,8 +300,6 @@ def V2b_row(mol, mu, CVlist=None, intor_name='int2e_sph', verb=None):
             print("   Vrow - A*A^dag (i.e. residual matrix row):", Vrow)
             print("   A*A^dag (direct function call to build_row()):", build_row(CVlist, i_global*nbasis + l_global, nbasis))
             print("   delta Vrow: ", Vrow_temp - Vrow)
-                             # to rebuild the entire residual matrix. Vfac will compute the row on
-                             # the fly, it autimatically applies a factor of -1.
             print("\n   *** *** *** ***\n")
             
     return Vrow
@@ -461,7 +458,6 @@ class factoredERIs_updateable:
 
     ToDo: we would like to allow the 'Blist' to grow as needed, 
           currently, it is the same shape as 'Alist'.
-
     '''
     def __init__(self, Alist, M, verb=False, useB=False):
         self.Alist = Alist
@@ -528,25 +524,10 @@ class factoredERIs_updateable:
             row[mu] = self._constitute(i,j,k,l)
         return row
 
-    #def full(self):
-    #    '''
-    #    This is really quite slow. Not recomended.
-    #    '''
-    #    if self.verb:
-    #        print("reconstituting full 2-body potential")
-    #    Msq = self.M*self.M
-    #    V = np.zeros((Msq,Msq))
-    #    for g in range(self.Nvec):
-    #        if self.verb:
-    #            print ("vector numbr = ",g)
-    #        A = self.Alist[g].flatten()
-    #        V += np.dot(A[:, None], A[None,:]) # this is equivalent to an outter product of A vecs
-    #    return V
     def full(self):
         '''
         This is a wrapper for backwards compatibility
         '''
-        #return self.full_einsum_2()
         return self.full_einsum()
 
     def full_einsum(self):
@@ -580,16 +561,8 @@ class factoredERIs_updateable:
             dbg = h5.File("factoredERIs-debug.h5","a")
         
         A = self.Alist
-        #for g in range(self.Nvec):
-        #    if self.verb:
-        #        print("  [+] Adding vector {}".format(g))
-        #    A = self.Alist[g]
-        #    Adag = A.conj().T 
-        #    V+= np.einsum('il,kj->ijkl', A, A)
-        
         V = np.einsum('gil,gjk->ijkl',A,A)
 
-        #V = np.dot(Adag, A)
         if debug:
             try:
                 dbg.create_dataset("A", data=A)
@@ -612,6 +585,8 @@ def dampedPrescreenCond(diag, vmax, delta):
     here, we evaluate the damped presreening condition as per:
     MOLCAS 7: The Next Generation. J. Comput. Chem., 31: 224-247. 2010. doi:10.1002/jcc.21318
 
+    Also see J. Chem. Phys. 118, 9481 (2003)
+
     This function will return a prescreened version of the diagonal:
 
     a diagonal element, diag_(mu), will be set to zero if:
@@ -625,7 +600,7 @@ def dampedPrescreenCond(diag, vmax, delta):
     '''
 
     s = max([delta*1E9, 1.0])
-    toScreen = np.less(diag, 0.0) # this is meant to avoid feeding negative numbers to np.sqrt below
+    toScreen = np.less(diag, 0.0) 
     diag[toScreen] = 0.0
 
     toScreen = np.less_equal(np.sqrt(diag*vmax), delta)
@@ -899,14 +874,10 @@ def getCholesky_OnTheFly_MOBasis(C, mol=None, tol=1e-8, prescreen=True, debug=Fa
     return choleskyNum, choleskyVecAO
 
 def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, erifile='temp_eri.h5', make_erifile=True):    
+
     def v_diagonal_file(erifile):
         # efficiently read the integrals from the hdf5 file
         f = h5.File(erifile,"a")
-        #shape = f['/new'].shape
-        #diag_index = np.zeros(shape[0])
-        #for i in range(shape[0]):
-        #    diag_index[i] = i
-        #diag = f['/new'][diag_index,diag_index] # attempting to use 'fancy indexing'
         diag = f['/new'][...].diagonal().copy() # [?] why do I need copy here?
         f.close()
         return diag
@@ -920,18 +891,12 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
             Note: untested!
             '''
             Sum = np.zeros((M,M))
-            #i = index // M
-            #l = index % M
             for gamma in range(len(CVlist)):
                 L = CVlist[gamma]
-                #print(f'[Debug] : _V_row_MO() -> CV_row() -> L = {L}')
                 Ldag = L.reshape((M,M)).conj().T
-                #print(f'[Debug] : _V_row_MO() -> CV_row() -> Ldag = {Ldag}')
                 Sum += L[index]*Ldag
-                #print(f'[Debug] : _V_row_MO() -> CV_row() -> Sum = {Sum}')
             return Sum.reshape((M*M))
 
-        # efficiently read the integrals from the hdf5 file
         f = h5.File(erifile,"a")
         row = f['/new'][ind].copy()
         f.close()
@@ -939,19 +904,12 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
    
     nbasis  = mol.nao_nr()
     nactive = C.shape[1]
-    # be more careful, this is will use a very large amount of memory!
-    #eri = scf._vhf.int2e_sph(mol._atm,mol._bas,mol._env)
-    #V   = ao2mo.restore(1, eri, nbasis)
-    #V   = V.reshape( nbasis*nbasis, nbasis*nbasis )
-
-    # 06042020 - I think we need all of the ERIs, since even the diagonal of Vijkl involes each
-    #            of the GTO basis integrals\
 
     if make_erifile:
         ao2mo.outcore.full(mol, C, erifile, dataname='new', compact=False)
         
     choleskyVecAO = []; choleskyNum = 0
-    Vdiag = v_diagonal_file(erifile) #V.diagonal().copy()
+    Vdiag = v_diagonal_file(erifile)
     if debug:
         print("Initial Vdiag: ", Vdiag)
 
@@ -962,7 +920,7 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
 
     while True:
         imax = np.argmax(Vdiag); vmax = Vdiag[imax]
-        print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax), flush=True ) # temporary for testing! remove flush=True (does it really make a performace difference, maybe keep?)
+        print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax))
         if(vmax<tol or choleskyNum==nactive*nactive):
             print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
             print('\n')
@@ -975,7 +933,6 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
                 print("vmax: ", vmax)
             choleskyVecAO.append( oneVec )
             choleskyNum+=1
-            #V -= np.dot(oneVec[:, None], oneVec[None,:])
             Vdiag -= oneVec**2
             if prescreen:
                 Vdiag = dampedPrescreenCond(Vdiag, vmax, tol)
@@ -1004,7 +961,6 @@ def GTO_ints(mol, index_range, verb=True):
                 for entry in index_map:
                     print(entry)
         
-            # should be a simple lookup
             shell_range = []
             for i, global_index in enumerate(index_range):
                 shell_index = index_map[global_index][0] # index_map contains index pairs (I,i) where I is the shell index, and i is the index within the shell
@@ -1015,11 +971,6 @@ def GTO_ints(mol, index_range, verb=True):
 
             return shell_range
 
-        # Can use the moleintor.getints('int2e', shls_slice=[:,nu,gamma, delta]) to
-        #  get V_mu[nu,gamma,delta] for example
-
-        #result = mol.moleintor.getints('int2e', shls_slice=index_range)
-        
         #IMPORTANT, we need to convert from index to shell index before requesting ints!
         if verb:
             print(f'[DEBUG] : index_range = {index_range}' )
