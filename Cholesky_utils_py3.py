@@ -1020,7 +1020,6 @@ def V_diagonal_MO(mol, C, intor='int2e_sph', verb=False):
 
 
         KNOWN BUG - the einsum below fails if C is a numpy.matrix, but works if C is a numpy.ndarray
-
         '''
 
         MA = C.shape[1]
@@ -1033,7 +1032,7 @@ def V_diagonal_MO(mol, C, intor='int2e_sph', verb=False):
         offset = gto.ao_loc_nr(mol) # gives the index of the first basis function in each shell (and the last index)
 
         # the expensive part
-        for i in range(MA): # note j=i
+        for i in range(MA):
             for gamma in range(Nshell):
                 for delta in range(Nshell):
                     ints = GTO_ints_shellInd(mol, shell_range=[0,Nshell,delta,delta+1,0,Nshell,gamma,gamma+1])
@@ -1041,7 +1040,7 @@ def V_diagonal_MO(mol, C, intor='int2e_sph', verb=False):
                     if verb:
                         print(f'[Debug] : ints.shape is {ints.shape} \n C_dag_row.shape is {C_dag_row.shape}')
                     Vii[i,offset[gamma]:offset[gamma+1],offset[delta]:offset[delta+1]] = \
-                        np.einsum('m,mdng,n->gd', C_dag_row, ints, C_dag_row, optimize='optimal') # need to double check this one
+                        np.einsum('m,mdng,n->gd', C_dag_row, ints, C_dag_row, optimize='optimal')
         
         for l in range(MA):
             C_col = C[:,l].flatten()
@@ -1089,11 +1088,11 @@ def V_row_MO(mol, C, row_index, intor='int2e_sph',verb=False):
         for gamma in range(Nshell):
             ints = GTO_ints_shellInd(mol, shell_range=[0,Nshell,0,Nshell,nu,nu+1,gamma,gamma+1])
             C_dag_row = C.conj().T[i_global,:]
-            C_col = C[:,l_global].flatten() # is flatten() necessary?
+            C_col = C[:,l_global].flatten()
             if verb:
                 print(f'[Debug] : V_row_MO() : \n  ->  ints.shape is {ints.shape}\n  ->   C_dag_row.shape is {C_dag_row.shape}\n  ->   C_col.shape is {C_col.shape}')
             Vnd[offset[nu]:offset[nu+1],offset[gamma]:offset[gamma+1]] = \
-                        np.einsum('m,mdng,d->ng', C_dag_row, ints, C_col, optimize='optimal') # need to double check this one
+                        np.einsum('m,mdng,d->ng', C_dag_row, ints, C_col, optimize='optimal')
         
     # tranform the nu GTO index to the j LMO index
     Vjd = np.einsum('jn,nd->jd', C.conj().T, Vnd, optimize='optimal')
@@ -1129,15 +1128,10 @@ def getCholeskyAO_MOBasis_NoIO(mol, C, tol=1e-8, prescreen=True, debug=False):
             Note: untested!
             '''
             Sum = np.zeros((M,M))
-            #i = index // M
-            #l = index % M
             for gamma in range(len(CVlist)):
                 L = CVlist[gamma]
-                #print(f'[Debug] : _V_row_MO() -> CV_row() -> L = {L}')
                 Ldag = L.reshape((M,M)).conj().T
-                #print(f'[Debug] : _V_row_MO() -> CV_row() -> Ldag = {Ldag}')
                 Sum += L[index]*Ldag
-                #print(f'[Debug] : _V_row_MO() -> CV_row() -> Sum = {Sum}')
             return Sum.reshape((M*M))
 
         M = C.shape[1]
@@ -1153,12 +1147,9 @@ def getCholeskyAO_MOBasis_NoIO(mol, C, tol=1e-8, prescreen=True, debug=False):
         print("Working in orthonormal, molecular orbital basis")
         print("Computing GTO intergals on the fly")
 
-
-    ##### IMPORTANT TO_DO #####: Need to produce the embedding potential too!
-
     print_msg(tol, prescreen)
 
-    nbasis  = mol.nao_nr() # [?] needed?
+    #nbasis  = mol.nao_nr() # [?] needed?
     nactive = C.shape[1]
     choleskyVecMO = []; choleskyNum = 0
     Vdiag = _V_diagonal_MO(mol, C, verb=debug)
