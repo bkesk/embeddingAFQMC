@@ -1170,14 +1170,13 @@ def getCholeskyAO_MOBasis_NoIO(mol, C, tol=1e-8, prescreen=True, debug=False):
             print('\n')
             break
         else:
-            oneVec = _V_row_MO(mol, C, imax, CVlist=choleskyVecMO, verb=debug)/np.sqrt(vmax) # TODO: need to sub CVs in row!
+            oneVec = _V_row_MO(mol, C, imax, CVlist=choleskyVecMO, verb=debug)/np.sqrt(vmax)
             if debug:
                 print("\n***debugging info*** \n")
                 print("imax: ", imax, " (i,l) ", (imax // nactive, imax % nactive))
                 print("vmax: ", vmax)
             choleskyVecMO.append( oneVec )
             choleskyNum+=1
-            #V -= np.dot(oneVec[:, None], oneVec[None,:]) # this won't work since we are not storing the full V tensor
             Vdiag -= oneVec**2
             if prescreen:
                 Vdiag = dampedPrescreenCond(Vdiag, vmax, tol)
@@ -1208,7 +1207,7 @@ def get_embedding_potential(mol, C, nfc, Nel, MA, debug=False):
 
     Inputs:
     mol - Pyscf molecule object describing the system
-    C - array containing the basis orbitals - including both inactive, and active occupied orbitals!
+    C - array containing the basis orbitals - including both inactive occupied, active occupied, and active virtual orbitals! (no inactive virtuals)
     nfc - number of orbitals to freeze : the first nfc orbitals (that is C[:,0:nfc]) are forzen
     Nel - total number of !!doubly ocupied!! electrons 
     MA - number of active orbitals
@@ -1222,7 +1221,6 @@ def get_embedding_potential(mol, C, nfc, Nel, MA, debug=False):
 
     
     if debug:
-    #    logging.basicConfig(filename='debug.log',level=logging.DEBUG)
         logging.basicConfig(level=logging.DEBUG)
     
     M = mol.nao_nr()
@@ -1232,19 +1230,17 @@ def get_embedding_potential(mol, C, nfc, Nel, MA, debug=False):
     C_core = C[:,:nfc]
     C_CoreDag = C_core.conj().T
     G_core = make_green_func(C_core, C_core,debus=True)
-    C_active =C[:, nfc:] # assuming C has already had virtuals truncated!
+    C_active =C[:, nfc:]
 
     if debug:
         logging.debug(f' nfc, Nel, MA : {nfc}, {Nel}, {MA}')
-        #logging.debug(f'G_core : {G_core}')
-
+        
     first=True
 
     # get intermediate results
     VmnkL = np.zeros((M,M,MA,nfc)) # used for both Vd and Vx
     for mu in range(Nshell):
         for nu in range(Nshell):
-            # get V[mu,:,nu,:] in Chemist's index convention = V(mu,nu,:,:) in Physicist's
             ints = GTO_ints_shellInd(mol, shell_range=[mu,mu+1,0,Nshell,nu,nu+1,0,Nshell])
             if debug and first:
                 first=False
@@ -1257,8 +1253,6 @@ def get_embedding_potential(mol, C, nfc, Nel, MA, debug=False):
             VmnkL[offset[mu]:offset[mu+1],offset[nu]:offset[nu+1],:,:] = \
                     np.einsum('dg,dl,gk->kl',ints[0,:,0,:],C_core,C_active,optimize='optimal')
 
-    # __bookmark__
-    # TODO : BUG : index ordering seems to be incorrect!
     Vd = np.einsum('im,jn,mnkl,il->jk',C_core.conj().T, C_active.conj().T, VmnkL,G_core,optimize='greedy')
     Vx = np.einsum('im,jn,mnkl,jl->ik',C_active.conj().T, C_core.conj().T, VmnkL,G_core,optimize='greedy')
     
@@ -1288,7 +1282,6 @@ def get_embedding_potential_2(mol, C, nfc, Nel, MA, debug=False):
 
     
     if debug:
-    #    logging.basicConfig(filename='debug.log',level=logging.DEBUG)
         logging.basicConfig(level=logging.DEBUG)
     
     M = mol.nao_nr()
@@ -1297,26 +1290,20 @@ def get_embedding_potential_2(mol, C, nfc, Nel, MA, debug=False):
 
     C_core = C[:,:nfc]
     C_CoreDag = C_core.conj().T
-    # TODO: give the make_green_func function to use an overlap matrix!
-    #G_core = make_green_func(C_core, C_core, debug=debug) #TODO: restirct to core only!!
     G_core = np.eye(nfc)# temporary fix!
     logging.debug(f'shape of G_core {G_core.shape}')
     logging.debug(f'G = {G_core}')
-    C_active =C[:, nfc:] # assuming C has already had virtuals truncated!
+    C_active =C[:, nfc:]
 
-    if debug:
-        logging.debug(f' nfc, Nel, MA : {nfc}, {Nel}, {MA}')
-        #logging.debug(f'G_core : {G_core}')
+    logging.debug(f' nfc, Nel, MA : {nfc}, {Nel}, {MA}')
 
     first=True
 
-    # TODO: delete numpy as arrays as we finish with them, and garbage collect
     # get intermediate results
     print('[+] getting GTO integrals ...')
     VmnkL = np.zeros((M,M,MA,nfc)) # used for both Vd and Vx
     for mu in range(Nshell):
         for nu in range(Nshell):
-            # get V[mu,:,nu,:] in Chemist's index convention = V(mu,nu,:,:) in Physicist's
             ints = GTO_ints_shellInd(mol, shell_range=[mu,mu+1,0,Nshell,nu,nu+1,0,Nshell])
             if debug and first:
                 first=False
@@ -1328,10 +1315,6 @@ def get_embedding_potential_2(mol, C, nfc, Nel, MA, debug=False):
                 logging.debug(f' shape of VmnkL {VmnkL.shape}')
             VmnkL[offset[mu]:offset[mu+1],offset[nu]:offset[nu+1],:,:] = \
                     np.einsum('mdng,dl,gk->mnkl',ints[:,:,:,:],C_core,C_active,optimize='optimal') 
-
-    # __bookmark__
-    #Vd = np.einsum('im,jn,mnkl,il->jk',C_core.conj().T, C_active.conj().T, VmnkL,G_core,optimize='greedy')
-    #Vx = np.einsum('im,jn,mnkl,jl->ik',C_active.conj().T, C_core.conj().T, VmnkL,G_core,optimize='greedy')
 
     print('[+] computing Vd ...')
     VInkL = np.einsum('im,mnkl->inkl',C_core.conj().T,VmnkL)
@@ -1389,7 +1372,7 @@ def get_embedding_potential_useh5(mol, C, nfc, Nel, MA, debug=False, make_erifil
     C_core = C[:,:nfc]
     C_CoreDag = C_core.conj().T
 
-    G_core = np.eye(nfc)# temporary fix!
+    G_core = np.eye(nfc)
     logging.debug(f'shape of G_core {G_core.shape}')
     logging.debug(f'G = {G_core}')
     C_active =C[:, nfc:] # assuming C has already had virtuals truncated!
@@ -1454,7 +1437,7 @@ def get_embedding_potential_incore(mol, C, nfc, Nel, MA, debug=False):
     C_core = C[:,:nfc]
     C_CoreDag = C_core.conj().T
 
-    G_core = np.eye(nfc)# temporary fix!
+    G_core = np.eye(nfc)
     logging.debug(f'shape of G_core {G_core.shape}')
     logging.debug(f'G = {G_core}')
     C_active =C[:, nfc:] # assuming C has already had virtuals truncated!
@@ -1511,8 +1494,6 @@ def get_embedding_constant_useh5(mol, C, nfc, debug=False, make_erifile=True):
     Cfc = C[:,:nfc]
     Cfc_dag = Cfc.conj().T
 
-    # [?] couldn't we go with an incore tranformation? the # of frozen core orbitals depends
-    #   doesn't grow the GTO basis
     if make_erifile:
         ao2mo.outcore.full(mol, Cfc, erifile='eri_core.h5', dataname='new', compact=False)
     
@@ -1611,7 +1592,7 @@ def get_embedding_constant(mol, C, nfc, debug=False):
                 logging.debug(f' shape of Cfc_dag {Cfc_dag.shape}')
                 logging.debug(f' shape of Cfc {Cfc.shape}')
             # we are using the offsets below because we are accessing the ints shell-by-shell here in mu, nu indices, but full basis in gamma, delta indices
-            Vd+=np.einsum('im,jn,mdng,gj,di->',Cfc_dag[:,offset[mu]:offset[mu+1]],Cfc_dag[:,offset[nu]:offset[nu+1]],ints,Cfc,Cfc,optimize='optimal') #TODO: only run optimize on first runs then save/reuse the path!
+            Vd+=np.einsum('im,jn,mdng,gj,di->',Cfc_dag[:,offset[mu]:offset[mu+1]],Cfc_dag[:,offset[nu]:offset[nu+1]],ints,Cfc,Cfc,optimize='optimal')
             Vx+=np.einsum('im,jn,mdng,gi,dj->',Cfc_dag[:,offset[mu]:offset[mu+1]],Cfc_dag[:,offset[nu]:offset[nu+1]],ints,Cfc,Cfc,optimize='optimal')
     
     if debug:
@@ -1643,20 +1624,16 @@ def get_one_body_embedding(mol, C, nfc, debug=False):
     logging.debug(f' get_one_body_embedding : C shape : {C.shape}')
     logging.debug(f' get_one_body_embedding : MA : {MA}')
 
-    # get full one-body Hamiltonian
     K = get_one_body_H(mol)
     S = get_ovlp(mol)
     
-    # K_active is simply K within the chosen active space with no extra transforms
-    K_active = np.einsum('im,mn,nl->il', C.conj().T[nfc:,:],K,C[:,nfc:]) #K[nfc:nfc+MA,nfc:nfc+MA]
+    K_active = np.einsum('im,mn,nl->il', C.conj().T[nfc:,:],K,C[:,nfc:])
+
     logging.debug(f' get_one_body_embedding : K_active shape : {K_active.shape}')
     
-    # get G_Core_{IL}
-    G_core = np.eye(nfc) # make_green_func(C[:,:nfc],C[:,:nfc])[:nfc, :nfc]
+    G_core = np.eye(nfc) 
     logging.debug(f' get_one_body_embedding : G_core : {G_core.shape}')
 
-    # EI_K is given by K_{IL} * G{IL} - wrong! should be [C^dag K C]_{II} since K is in GTO basis
-    #EI_K = np.trace(np.matmul(K[:nfc,:nfc],G_core))
     EI_K = np.einsum('im,mn,ni->',C.conj().T[:nfc,:],K,C[:,:nfc])
 
     return K_active, EI_K
