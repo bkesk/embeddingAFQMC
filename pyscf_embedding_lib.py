@@ -707,8 +707,11 @@ def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm
     V2b_file - the binary file containing the one-body operators that for a factore rep. of the 
                two-body interaction term.
     verb - sets the verbosity level, passed directly to pyscf functions. Also, for verb > 4 ,                     additionl output is generatd by this function.
+
     '''
-    
+
+    E=0
+
     M, h1, S = ch.load_oneBody_gms(one_body_file)
 
     if verb > 4:
@@ -762,7 +765,7 @@ def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm
             print("  [+] Trace of the density matrix beta sector = {}".format(np.trace(dm[1])))
 
             print("DM provided -> Electronic Energy: {}".format(mf.energy_elec(dm=dm)))
-        mf.kernel(dm)
+        E=mf.kernel(dm)
     elif dm_file is not None and N_frozen_occ is not None:
         if verb >= 4:
             print("[+] customH_mf : using DM from {} with N_frozen_occ = {}".format(dm_file,N_frozen_occ))
@@ -774,12 +777,13 @@ def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm
         print("[+] customH_mf : checking integrity of truncated density matrix")
         print("  [+] Trace of the truncated density matrix alpha sector = {}".format(np.trace(dm[0])))
         print("  [+] Trace of the truncated density matrix beta sector = {}".format(np.trace(dm[1])))
-        mf.kernel(dm)
+        E=mf.kernel(dm)
     else:
         if verb >= 4:
             print("[+] customH_mf : no DM provided, using Pyscf default Guess")
-        mf.kernel()
+        E=mf.kernel()
 
+    return E
 # Spin consistent basis - prototype:
 
 def make_spin_consistent_basis(nameErkChk, debug=False):

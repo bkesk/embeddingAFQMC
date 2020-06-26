@@ -1344,7 +1344,6 @@ def get_embedding_potential_2(mol, C, nfc, Nel, MA, debug=False):
 
     return 2*Vd - Vx
 
-
 def get_embedding_potential_useh5(mol, C, nfc, Nel, MA, debug=False, make_erifile=True):
     '''
     computes the effective 1-body embedding potential V^{I_A}_{il}, using pyscf's interface to libcint, and ao2mo for 
