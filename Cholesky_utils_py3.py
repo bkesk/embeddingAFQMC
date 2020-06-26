@@ -883,7 +883,7 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
         return diag
 
     def v_row_file(erifile, ind, CVlist, M):
-
+        # TODO: This can have numerical instabilities due to the subtraction of Cholesky vectors from the exact MO integrals
         def CV_row(index,CVlist,M):
             '''
             compute row at index 'index' using the current list of Cholesky Vectors 'CVlist'
@@ -926,6 +926,7 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
             print('\n')
             break
         else:
+            # There are possible numerical instabilities in this function!
             oneVec = v_row_file(erifile, imax, choleskyVecAO, nactive)/np.sqrt(vmax)
             if debug:
                 print("\n***debugging info*** \n")
