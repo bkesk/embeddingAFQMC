@@ -5,8 +5,8 @@ from pyscf import lib, gto, scf, ao2mo # importing specific pyscf submodules
 # the following are libraries written by us
 import pyqmc.matrices.gms as gms # written by Wirawan Purwanto to all read/write to the GAMESS file format for 1-body, and single particle orbitals.
 # submodules - use relative path
-import .cholesky as ch # written by Kyle Eskridge to implement a Cholesky decomp. in pyscf, along with other support functions.
-import .density as dmat
+import embedding.cholesky as ch # written by Kyle Eskridge to implement a Cholesky decomp. in pyscf, along with other support functions.
+import embedding.density as dmat
 
 def ortho_check(mf,C=None,mol=None,verb=False):
     '''
