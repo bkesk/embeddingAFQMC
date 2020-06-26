@@ -901,6 +901,18 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
         row = f['/new'][ind].copy()
         f.close()
         return row - CV_row(ind, CVlist, M)
+
+    def v_row_file_outcore(erifile, ind, M, vmax):
+        '''
+        The goal is to compute the rows while storing the residual matrix in 'erifile'
+        '''
+        # TODO: This can have numerical instabilities due to the subtraction of Cholesky vectors from the exact MO integrals
+        f = h5.File(erifile,"a")
+        L = f['/new'][ind].copy() # this is the desired row, which will become a Cholesky vector, L
+        Ldag = L.reshape((M,M)).conj().T # reshape so that we can properly transpose - may be able to get clever with an indexing map
+        f['/new'][ind, :] -= L[ind]*Ldag.reshape((M*M))/vmax # update residual error matrix
+        f.close()
+        return L
    
     nbasis  = mol.nao_nr()
     nactive = C.shape[1]
@@ -928,6 +940,7 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
         else:
             # There are possible numerical instabilities in this function!
             oneVec = v_row_file(erifile, imax, choleskyVecAO, nactive)/np.sqrt(vmax)
+            #oneVec = v_row_file_outcore(erifile, imax, nactive, vmax)/np.sqrt(vmax)
             if debug:
                 print("\n***debugging info*** \n")
                 print("imax: ", imax, " (i,l) ", (imax // nactive, imax % nactive))
