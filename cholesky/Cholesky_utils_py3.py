@@ -578,7 +578,7 @@ class factoredERIs_updateable:
             print("reconstituted V shape : ", V.shape)
         return V
 
-def dampedPrescreenCond(diag, vmax, delta):
+def dampedPrescreenCond(diag, vmax, delta, s=None):
     '''
     NOTE: This has not been completed!!!! 
     
@@ -596,17 +596,23 @@ def dampedPrescreenCond(diag, vmax, delta):
     where mu = (i,l) is a pair index, s is a numerical parameter, v is a Cholesky vector, 
     delta is the cholesky threshold and vmax is the maxium value on the diagonal
 
+    s is the damping factor and typically:
+    s = max([delta*1E9, 1.0])
+
     TODO: test this, need a system where the possible numerical instbility could be a problem.
     '''
 
-    s = max([delta*1E9, 1.0])
-    toScreen = np.less(diag, 0.0) 
-    diag[toScreen] = 0.0
+    if s is None:
+        s = max([delta*1E9, 1.0])
 
-    toScreen = np.less_equal(np.sqrt(diag*vmax), delta)
-    diag[toScreen] = 0.0
-    return diag
+    # need to clear negative values (should all be zero anyway) to feed to np.sqrt
+    negative = np.less(diag, 0.0) 
+    diag[negative] = 0.0
 
+    # the actual damped prescreening
+    toScreen = np.less_equal(s*np.sqrt(diag*vmax), delta)
+    diag[toScreen] = 0.0
+    return diag, toScreen
 
 def getCholesky(fromInts = True, onTheFly=True, mol=None, CVfile='V2b_AO_cholesky.mat', tol=1e-8, prescreen=True, debug=False):
     '''
@@ -905,21 +911,64 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
     def v_row_file_outcore(erifile, ind, M, vmax):
         '''
         The goal is to compute the rows while storing the residual matrix in 'erifile'
+        TODO: it is not clear that this is correct, it seems that we are returning the previous iteration's CV
         '''
         # TODO: This can have numerical instabilities due to the subtraction of Cholesky vectors from the exact MO integrals
         f = h5.File(erifile,"a")
-        L = f['/new'][ind].copy() # this is the desired row, which will become a Cholesky vector, L
+        L = f['/new'][ind].copy() # this is the desired ERI row, which will become a Cholesky vector, L
         Ldag = L.reshape((M,M)).conj().T # reshape so that we can properly transpose - may be able to get clever with an indexing map
         f['/new'][ind, :] -= L[ind]*Ldag.reshape((M*M))/vmax # update residual error matrix
         f.close()
         return L
    
+    def v_row_file_screen(erifile, ind, M, CVlist, delCol=None):
+        '''
+        The goal is to compute the Cholesky vecotrs by reading ERIs from 'erifile'
+        and zeroing out the screened CV elemsts, based on column index
+        '''
+
+        def CV_row(index,CVlist,M):
+            '''
+            compute row at index 'index' using the current list of Cholesky Vectors 'CVlist'
+            
+            Note: untested!
+            '''
+            Sum = np.zeros((M,M))
+            for gamma in range(len(CVlist)):
+                L = CVlist[gamma]
+                Ldag = L.reshape((M,M)).conj().T
+                Sum += L[index]*Ldag
+            return Sum.reshape((M*M))
+
+        # TODO: This can have numerical instabilities due to the subtraction of Cholesky vectors from the exact MO integrals
+        f = h5.File(erifile,"a")
+        L = f['/new'][ind].copy() # this is the desired ERI row, which will become a Cholesky vector, L
+        f.close()
+        
+        # Screen before computing
+        if delCol is not None:
+            delCol = np.zeros((M*M), dtype=bool)
+        
+        L[delCol] = 0.0
+        L[~delCol] = L[~delCol] - CV_row(ind, CVlist, M)
+        
+        return L
+   
+
+    #damping factor for screening
+    s = max([tol*1E9,1.0])
+    
     nbasis  = mol.nao_nr()
     nactive = C.shape[1]
 
     if make_erifile:
         ao2mo.outcore.full(mol, C, erifile, dataname='new', compact=False)
-        
+
+    # Q : should this quantity be reset at each iteration?
+    delCol = np.zeros((nactive*nactive),dtype=bool) # list of pair indices that are 'removed' due to dynamic screening
+
+    print(f'Initial delCol array = {delCol}')
+
     choleskyVecAO = []; choleskyNum = 0
     Vdiag = v_diagonal_file(erifile)
     if debug:
@@ -939,8 +988,13 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
             break
         else:
             # There are possible numerical instabilities in this function!
-            oneVec = v_row_file(erifile, imax, choleskyVecAO, nactive)/np.sqrt(vmax)
+            # Need to screen within v_row_file (as it is currently written)
+            #oneVec = v_row_file(erifile, imax, choleskyVecAO, nactive)/np.sqrt(vmax)
             #oneVec = v_row_file_outcore(erifile, imax, nactive, vmax)/np.sqrt(vmax)
+            oneVec = v_row_file_screen(erifile, imax, nactive, choleskyVecAO, delCol)/np.sqrt(vmax)
+            # apply screening to the row!!
+            #toScreen = np.less(oneVec,s*np.sqrt())
+            
             if debug:
                 print("\n***debugging info*** \n")
                 print("imax: ", imax, " (i,l) ", (imax // nactive, imax % nactive))
@@ -949,11 +1003,14 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
             choleskyNum+=1
             Vdiag -= oneVec**2
             if prescreen:
-                Vdiag = dampedPrescreenCond(Vdiag, vmax, tol)
+                Vdiag, removed = dampedPrescreenCond(Vdiag, vmax, tol)
+                delCol[removed] = True # save 'removed' indices for future use
             if debug:
                 print("oneVec: ", oneVec)
                 print("oneVec**2: ", oneVec**2)
                 print("Vdiag: ", Vdiag)
+
+    print(f'Dynamic screening removed following pair indices: {delCol}')
 
     return choleskyNum, choleskyVecAO
 
