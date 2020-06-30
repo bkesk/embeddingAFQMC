@@ -787,7 +787,7 @@ def ao2mo_mat(C, mat):
     matMO=np.matmul(matMO,C)
     return matMO
 
-def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8):
+def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8, prescreen=True):
     '''
     perform a Cholesky decomposition on a factorized representation of V
     # (i.e. V = sum_g A^g * (A^g)^dagger)
@@ -821,7 +821,7 @@ def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8):
         and the diagnonl is given by: 
         V_aa = sum_g (A^g_a *((A^g)^dagger_a))
         '''
-        diag = np.einsum('gil,gil,->il', Alist, AdagList)
+        diag = np.einsum('gil,gil->il', Alist, AdagList)
         return diag
 
     def row(Alist,AdagList,ind):
@@ -848,7 +848,7 @@ def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8):
     choleskyNum = 0
     choleskyNumGuess= Alist.shape[0] # max Cholesky vectors for this method is the number of 
                                      #   transformed Cholesky vectors (no reason to go on)
-    choleskyVecMO = np.zeros((numCVGuess,nbasis,nbasis))
+    choleskyVecMO = np.zeros((choleskyNumGuess,nbasis,nbasis))
     Vdiag = diagonal(Alist, AdagList) 
 
     #print(Vdiag)
@@ -856,10 +856,11 @@ def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8):
         imax = np.argmax(Vdiag); vmax = Vdiag[imax]
         toScreen = np.less(Vdiag, tol*tol/vmax)
         Vdiag[toScreen] = 0.0
-
+        #CRITICAL BUG : somehow, vmax is a vector, should be a single value - be careful about
+        #               using (M,M) shape, and (M*M) shape!
     while choleskyNum <= choleskyNumGuess:
         imax = np.argmax(Vdiag); vmax = Vdiag[imax]
-        print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax) )
+        print("Inside modified Cholesky {:<9} {:26.18e}".format(choleskyNum, vmax))
         if(vmax<tol or choleskyNum==nbasis*nbasis):
             print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
             print('\n')
