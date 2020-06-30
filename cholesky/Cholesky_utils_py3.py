@@ -10,8 +10,6 @@ from pyscf.gto import getints_by_shell
 from V2b_inspect import load_V2b_dump, save_V2b_dump, sym_2d_unpack, sym_2d_pack
 import pyqmc.matrices.gms as gms
 
-
-
 def save_choleskyList_GAFQMCformat(Ncv, M, CVlist, outfile="V2b_AO_cholesky.mat"):
     '''
     This function converts from a list of square-matrix Cholesky vectors, to a numpy
@@ -609,8 +607,10 @@ def dampedPrescreenCond(diag, vmax, delta, s=None):
     negative = np.less(diag, 0.0) 
     diag[negative] = 0.0
 
+    sDeltaSqr=(delta/s)*(delta/s)
     # the actual damped prescreening
-    toScreen = np.less_equal(s*np.sqrt(diag*vmax), delta)
+    #toScreen = np.less_equal(s*np.sqrt(diag*vmax), delta)
+    toScreen = np.less_equal(diag*vmax, sDeltaSqr)
     diag[toScreen] = 0.0
     return diag, toScreen
 
@@ -879,7 +879,11 @@ def getCholesky_OnTheFly_MOBasis(C, mol=None, tol=1e-8, prescreen=True, debug=Fa
 
     return choleskyNum, choleskyVecAO
 
-def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, erifile='temp_eri.h5', make_erifile=True):    
+def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, erifile='temp_eri.h5', make_erifile=True,_noScreen=False):    
+
+    '''
+    _noScreen : this is a testing option
+    '''
 
     def v_diagonal_file(erifile):
         # efficiently read the integrals from the hdf5 file
@@ -949,8 +953,8 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
         if delCol is not None:
             delCol = np.zeros((M*M), dtype=bool)
         
-        L[delCol] = 0.0
-        L[~delCol] = L[~delCol] - CV_row(ind, CVlist, M)
+        L = L - CV_row(ind, CVlist, M)
+        L[delCol] = 0.0 # zero out the screened indices / product functions
         
         return L
    
@@ -989,9 +993,11 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
         else:
             # There are possible numerical instabilities in this function!
             # Need to screen within v_row_file (as it is currently written)
-            #oneVec = v_row_file(erifile, imax, choleskyVecAO, nactive)/np.sqrt(vmax)
+            if _noScreen:
+                oneVec = v_row_file(erifile, imax, choleskyVecAO, nactive)/np.sqrt(vmax)
             #oneVec = v_row_file_outcore(erifile, imax, nactive, vmax)/np.sqrt(vmax)
-            oneVec = v_row_file_screen(erifile, imax, nactive, choleskyVecAO, delCol)/np.sqrt(vmax)
+            else:
+                oneVec = v_row_file_screen(erifile, imax, nactive, choleskyVecAO, delCol)/np.sqrt(vmax)
             # apply screening to the row!!
             #toScreen = np.less(oneVec,s*np.sqrt())
             
