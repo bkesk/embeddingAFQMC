@@ -712,7 +712,7 @@ def getCholeskyAO(mol=None, tol=1e-8, prescreen=True, debug=False):
             V -= np.dot(oneVec[:, None], oneVec[None,:])
             Vdiag -= oneVec**2
             if prescreen:
-                Vdiag = dampedPrescreenCond(Vdiag, vmax, tol)
+                Vdiag, dump = dampedPrescreenCond(Vdiag, vmax, tol)
             if debug:
                 print("oneVec: ", oneVec)
                 print("oneVec**2: ", oneVec**2)
@@ -844,7 +844,8 @@ def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8):
     #   - also store both L, and Ldag using the '3-index' format L = [gamma,i,l]
     #choleskyVecAO = []; 
     choleskyNum = 0
-    choleskyNumGuess= 20*nbasis # expected number of basis functions, with some extra space (about 2* actual estimate)
+    choleskyNumGuess= Alist.shape[0] # max Cholesky vectors for this method is the number of 
+                                     #   transformed Cholesky vectors (no reason to go on)
     choleskyVecMO = np.zeros((numCVGuess,nbasis,nbasis))
     Vdiag = diagonal(Alist, AdagList) 
 
@@ -854,7 +855,7 @@ def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8):
         toScreen = np.less(Vdiag, tol*tol/vmax)
         Vdiag[toScreen] = 0.0
 
-    while True:
+    while choleskyNum <= choleskyNumGuess:
         imax = np.argmax(Vdiag); vmax = Vdiag[imax]
         print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax) )
         if(vmax<tol or choleskyNum==nbasis*nbasis):
@@ -866,7 +867,7 @@ def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8):
             #choleskyVecAO.append( oneVec )
             if prescreen:
                 oneVec[delCol]=0.0
-            choleskyVecAO[choleskyNum,:,;]=oneVec 
+            choleskyVecAO[choleskyNum,:,:]=oneVec 
             choleskyNum+=1
             Vdiag -= oneVec**2
             if prescreen:
@@ -925,7 +926,8 @@ def getCholesky_OnTheFly(mol=None, tol=1e-8, prescreen=True, debug=False):
         Vdiag[toScreen] = 0.0
     
     while True:
-        imax = np.argmax(Vdiag); vmax = Vdiag[imax]
+        imax = np.argmax(Vdiag)
+        vmax = Vdiag[imax]
         VmaxList.append(vmax)
         print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax) )
         if(vmax<tol or choleskyNum==nbasis*nbasis):
@@ -945,7 +947,7 @@ def getCholesky_OnTheFly(mol=None, tol=1e-8, prescreen=True, debug=False):
             choleskyNum+=1
             Vdiag -= oneVec**2
             if prescreen:
-                Vdiag = dampedPrescreenCond(Vdiag, vmax, tol)
+                Vdiag, dump = dampedPrescreenCond(Vdiag, vmax, tol)
             if debug:
                 print("oneVec: ", oneVec)
                 print("oneVec**2: ", oneVec**2)
