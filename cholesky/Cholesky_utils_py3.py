@@ -766,7 +766,8 @@ def ao2mo_cholesky(C,choleskyVecAO):
     ncv = choleskyVecAO.shape[0]
     nGTO, nactive = C.shape
     Cdag = C.conj().T # for readability below!
-    choleskyVecMO = np.einsum('im,gmn,nl->gil',C,choleskyVecAO.reshape(ncv,nGTO,nGTO),Cdag)
+    choleskyVecMO = np.einsum('im,gmn->gin',Cdag,choleskyVecAO)
+    choleskyVecMO = np.einsum('gin,nj->gij',choleskyVecAO,C)
     return choleskyVecMO
 
 def ao2mo_mat(C, mat):
@@ -780,9 +781,11 @@ def ao2mo_mat(C, mat):
 
     Returns:
        matMO - matrix in MO basis
-    '''    
-    choleskyVecMO = np.einsum('im,mn,nl->il',C,mat,Cdag)
-    return choleskyVecMO
+    '''  
+    Cdag = C.conj().T
+    matMO=np.matmul(Cdag,mat)
+    matMO=np.matmul(matMO,C)
+    return matMO
 
 def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8):
     '''
