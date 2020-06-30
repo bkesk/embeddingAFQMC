@@ -746,6 +746,64 @@ def getCholeskyExternal(nbasis, Alist, tol=1e-8):
 
     return choleskyNum, choleskyVecAO
 
+def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8):
+    # perform a Cholesky decomposition on a factorized representation of V
+    # (i.e. V = sum_g A^g * (A^g)^dagger)
+    # Alist is a (3-dimentional numpy array) of the one-body operators A^g_{il}.
+    # the A vectors can be Cholesky vectors, density fitting vectors, eigenvectors of V, etc.
+ 
+    #V = factoredERIs_updateable(Alist,nbasis,verb=True,useB=True)
+    
+    def diagonal(Alist, AdagList):
+        '''
+        compute the diagonal of V from the set of vectors, A
+        if a,b are pair indices:
+        
+        V_ab = sum_g (A^g_a * (A^g)^dagger_b)
+        
+        and the diagnonl is given by: 
+        V_aa = sum_g (A^g_a *((A^g)^dagger_a))
+        '''
+        diag = np.einsum('gil,gil,->il', Alist, AdagList)
+        return diag
+
+    def row(Alist,AdagList,ind):
+        '''
+        compute the diagonal of V from the set of vectors, A
+        if a,b are pair indices:
+        
+        V_ab = sum_g (A^g_a * (A^g)^dagger_b)
+        
+        and the diagnonl is given by: 
+        V_aa = sum_g (A^g_a *((A^g)^dagger_a))
+        '''
+        M = Alist.shape[1]
+        i = ind // M
+        l = ind % M
+        row = np.einsum('g,gjk',Alist[:,i,l],AdagList)
+        return row
+
+    # let's use a numpy array with a fixed size here, we can simply discard the unused part latter
+    #   - also store both L, and Ldag using the '3-index' format L = [gamma,i,l]
+    choleskyVecAO = []; choleskyNum = 0
+    Vdiag = V.diagonal().copy() 
+    print(Vdiag)
+    while True:
+        imax = np.argmax(Vdiag); vmax = Vdiag[imax]
+        print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax) )
+        if(vmax<tol or choleskyNum==nbasis*nbasis):
+            print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
+            print('\n')
+            break
+        else:
+            oneVec = V.row(imax)/np.sqrt(vmax)
+            choleskyVecAO.append( oneVec )
+            choleskyNum+=1
+            V.updateBlist(oneVec.reshape(nbasis,nbasis))
+            Vdiag -= oneVec**2
+
+    return choleskyNum, choleskyVecAO
+
 def getCholeskyExternal_full(nbasis, Alist, tol=1e-8):
     # perform a Cholesky decomposition on a factorized representation of V
     # (i.e. V = sum_g A^g * (A^g)^dagger)
