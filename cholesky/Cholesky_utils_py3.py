@@ -763,11 +763,10 @@ def ao2mo_cholesky(C,choleskyVecAO):
     Returns:
        chleskyVecMO - numpy array containing the Cholesky vectros represented in the MO basis
     '''
-    #ncv = choleskyVecAO.shape[0]
+    ncv = choleskyVecAO.shape[0]
     nGTO, nactive = C.shape
     Cdag = C.conj().T # for readability below!
-    
-    choleskyVecMO = np.einsum('im,gmn,nl->gil',C,choleskyVecAO.reshape(nGTO,nGTO),Cdag)
+    choleskyVecMO = np.einsum('im,gmn,nl->gil',C,choleskyVecAO.reshape(ncv,nGTO,nGTO),Cdag)
     return choleskyVecMO
 
 def ao2mo_mat(C, mat):
