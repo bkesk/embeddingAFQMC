@@ -610,7 +610,7 @@ def dampedPrescreenCond(diag, vmax, delta, s=None):
     sDeltaSqr=(delta/s)*(delta/s)
     # the actual damped prescreening
     #toScreen = np.less_equal(s*np.sqrt(diag*vmax), delta)
-    toScreen = np.less_equal(diag*vmax, sDeltaSqr)
+    toScreen = np.less(diag*vmax, sDeltaSqr)
     diag[toScreen] = 0.0
     return diag, toScreen
 
@@ -746,14 +746,69 @@ def getCholeskyExternal(nbasis, Alist, tol=1e-8):
 
     return choleskyNum, choleskyVecAO
 
+def ao2mo_cholesky(C,choleskyVecAO):
+    '''
+    Transforms the GTO basis Cholesky vectors to the MO basis
+    
+    Inputs:
+       C - coefficient matrix which specifies the desired MOs in terms of the GTO basis funcs
+             (index conventions: C_{mu i} mu - GTO index, i - MO index)
+       choleskyVecAO - numpy array containing the Cholesky vectors represented in the GTO basis
+
+    index convention for CVs: choleskyVecAO[gamma, mu, nu]
+                with gamma - Cholesky vector index
+                     mu,nu - GTO indices 
+           * similar for MO basis mu,nu -> i,l
+
+    Returns:
+       chleskyVecMO - numpy array containing the Cholesky vectros represented in the MO basis
+    '''
+    #ncv = choleskyVecAO.shape[0]
+    nGTO, nactive = C.shape
+    Cdag = C.conj().T # for readability below!
+    
+    choleskyVecMO = np.einsum('im,gmn,nl->gil',C,choleskyVecAO.reshape(nGTO,nGTO),Cdag)
+    return choleskyVecMO
+
+def ao2mo_mat(C, mat):
+    '''
+    Transforms the GTO basis matrix to the MO basis
+    
+    Inputs:
+       C - coefficient matrix which specifies the desired MOs in terms of the GTO basis funcs
+             (index conventions: C_{mu i} mu - GTO index, i - MO index)
+       mat - numpy matrix (num GTO x num GTO) represented in the GTO basis
+
+    Returns:
+       matMO - matrix in MO basis
+    '''    
+    choleskyVecMO = np.einsum('im,mn,nl->il',C,mat,Cdag)
+    return choleskyVecMO
+
 def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8):
-    # perform a Cholesky decomposition on a factorized representation of V
+    '''
+    perform a Cholesky decomposition on a factorized representation of V
     # (i.e. V = sum_g A^g * (A^g)^dagger)
     # Alist is a (3-dimentional numpy array) of the one-body operators A^g_{il}.
     # the A vectors can be Cholesky vectors, density fitting vectors, eigenvectors of V, etc.
- 
-    #V = factoredERIs_updateable(Alist,nbasis,verb=True,useB=True)
+
+    Inputs:
     
+    nabsis - number of active basis functions
+    Alist - 3-d numpy array containing Cholesky vectors from a previous decomposition (can
+               (also be eigen vectors, or density fitting vectors). 
+    AdagList - 3-d np array containing Hermitian conjugate of CVs
+    tol - cholesky decomposition threshold
+ 
+    index convections: Alist, AdagList have indices [gamma,i,l] with:
+              - gamma = Cholesky vector index
+              - i,l = MO orbital index
+    
+    returns:
+    choleskyNum - number of Cholesky vectors
+    choleskyVecAO - the Cholesky vectors
+    '''
+
     def diagonal(Alist, AdagList):
         '''
         compute the diagonal of V from the set of vectors, A
@@ -783,11 +838,22 @@ def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8):
         row = np.einsum('g,gjk',Alist[:,i,l],AdagList)
         return row
 
+
+    delCol = np.zeros((nbasis*nbasis),dtype=bool)
     # let's use a numpy array with a fixed size here, we can simply discard the unused part latter
     #   - also store both L, and Ldag using the '3-index' format L = [gamma,i,l]
-    choleskyVecAO = []; choleskyNum = 0
-    Vdiag = V.diagonal().copy() 
-    print(Vdiag)
+    #choleskyVecAO = []; 
+    choleskyNum = 0
+    choleskyNumGuess= 20*nbasis # expected number of basis functions, with some extra space (about 2* actual estimate)
+    choleskyVecMO = np.zeros((numCVGuess,nbasis,nbasis))
+    Vdiag = diagonal(Alist, AdagList) 
+
+    #print(Vdiag)
+    if prescreen: # zero small diagonal matrix elements - see J. Chem. Phys. 118, 9481 (2003)
+        imax = np.argmax(Vdiag); vmax = Vdiag[imax]
+        toScreen = np.less(Vdiag, tol*tol/vmax)
+        Vdiag[toScreen] = 0.0
+
     while True:
         imax = np.argmax(Vdiag); vmax = Vdiag[imax]
         print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax) )
@@ -796,13 +862,21 @@ def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8):
             print('\n')
             break
         else:
-            oneVec = V.row(imax)/np.sqrt(vmax)
-            choleskyVecAO.append( oneVec )
+            oneVec = (row(Alist,AdagList,imax) - row(choleskyVecMO,choleskyVecMO))/np.sqrt(vmax)
+            #choleskyVecAO.append( oneVec )
+            if prescreen:
+                oneVec[delCol]=0.0
+            choleskyVecAO[choleskyNum,:,;]=oneVec 
             choleskyNum+=1
-            V.updateBlist(oneVec.reshape(nbasis,nbasis))
             Vdiag -= oneVec**2
+            if prescreen:
+                Vdiag, removed = dampedPrescreenCond(Vdiag, vmax, tol)
+                delCol[removed] = True # save 'removed' indices for future use
+    
+    if prescreen:
+        print(f'Dynamic screening removed following pair indices: {delCol}')
 
-    return choleskyNum, choleskyVecAO
+    return choleskyNum, choleskyVecAO[:choleskyNum].reshape((choleskyNum,nbasis*nbasis))
 
 def getCholeskyExternal_full(nbasis, Alist, tol=1e-8):
     # perform a Cholesky decomposition on a factorized representation of V
@@ -979,8 +1053,7 @@ def getCholeskyAO_MOBasis_DiskIO(mol, C, tol=1e-8, prescreen=True, debug=False, 
         f = h5.File(erifile,"a")
         L = f['/new'][ind].copy() # this is the desired ERI row, which will become a Cholesky vector, L
         Ldag = L.reshape((M,M)).conj().T # reshape so that we can properly transpose - may be able to get clever with an indexing map
-        f['/new'][ind, :] -= L[ind]*Ldag.reshape((M*M))/vmax # update residual error matrix
-        f.close()
+        f['/new'][ind, :] -= L[ind]*Ldag.reshape((M*M))/vmax # update residual error matrix        f.close()
         return L
    
     def v_row_file_screen(erifile, ind, M, CVlist, delCol=None):
