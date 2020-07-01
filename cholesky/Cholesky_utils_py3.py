@@ -787,7 +787,7 @@ def ao2mo_mat(C, mat):
     matMO=np.matmul(matMO,C)
     return matMO
 
-def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8, prescreen=True):
+def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8, prescreen=True, debug=False):
     '''
     perform a Cholesky decomposition on a factorized representation of V
     # (i.e. V = sum_g A^g * (A^g)^dagger)
@@ -848,6 +848,9 @@ def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8, prescreen=True):
         Lshp = L.reshape((M*M))
         return Lshp**2
 
+    if debug:
+        logging.basicConfig(level=logging.DEBUG)
+    
     #TODO: see if you can fix all of the np.array reshaping
     delCol = np.zeros((nbasis*nbasis),dtype=bool)
     # let's use a numpy array with a fixed size here, we can simply discard the unused part latter
@@ -873,10 +876,13 @@ def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8, prescreen=True):
         else:
             # TODO we can slice choleskyVecMO[:choleskyNum,:,:] here
             oneVec = (row(Alist,AdagList,imax) - row(choleskyVecMO,choleskyVecMO,imax))/np.sqrt(vmax)
-            print(f'oncVec = {oneVec}')
+            # TODO : do we need to directly apply a screening to vmax? I see quite small
+            #          negative values propagated ... 
+            logging.debug(f'getCholeskyExternal_new() oneVec before screening : {oneVec}')
             # another reshape ...
             if prescreen:
                 oneVec[delCol.reshape(nbasis,nbasis)]=0.0
+                logging.debug(f'getCholeskyExternal_new() oneVec after screening : {oneVec}')
             choleskyVecMO[choleskyNum,:,:]=oneVec 
             choleskyNum+=1
             Vdiag -= update_diag(oneVec)
@@ -885,7 +891,7 @@ def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8, prescreen=True):
                 delCol[removed] = True # save 'removed' indices for future use
     
     if prescreen:
-        print(f'Dynamic screening removed following pair indices: {delCol}')
+        logging.debug(f'Dynamic screening removed following pair indices: {delCol}')
 
     return choleskyNum, choleskyVecMO[:choleskyNum].reshape((choleskyNum,nbasis*nbasis))
 
