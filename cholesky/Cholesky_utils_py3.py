@@ -23,7 +23,7 @@ def save_choleskyList_GAFQMCformat(Ncv, M, CVlist, outfile="V2b_AO_cholesky.mat"
     for i in range(Ncv):
         # convert from a 1-D vector, to a MxM matrix rep.
         # insert factor of 1/sqrt(2)        
-        Lmat = CVlist[i].reshape(M,M)*(1/np.sqrt(2))
+        Lmat = CVlist[i].reshape((M,M))*(1/np.sqrt(2))
         if verb:
             print (i, Lmat.shape)
         sym_2d_pack(Lmat,CVarray[i])
@@ -769,8 +769,8 @@ def ao2mo_cholesky(C,choleskyVecAO):
     ncv = choleskyVecAO.shape[0]
     nGTO, nactive = C.shape
     Cdag = C.conj().T # for readability below!
-    choleskyVecMO = np.einsum('im,gmn->gin',Cdag,choleskyVecAO)
-    choleskyVecMO = np.einsum('gin,nj->gij',choleskyVecMO,C)
+    temp = np.einsum('im,gmn->gin',Cdag,choleskyVecAO)
+    choleskyVecMO = np.einsum('gin,nj->gij',temp,C)
     return choleskyVecMO
 
 def ao2mo_mat(C, mat):
