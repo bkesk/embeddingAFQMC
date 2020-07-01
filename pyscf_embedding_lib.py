@@ -624,7 +624,7 @@ def custom_jk(mol, dm, *args):
     return J, K
 
 
-def custom_jk_uhf(mol, dm, *args):
+def custom_jk_uhf(mol, dm, V2b_file='V2b_AO_cholesky.mat', *args):
     '''
     This function allows a custom 2-Body Hamiltonian, V, expressed as a factored form,
     V = sum_g A^g (A^g)^dagger (where A are one-body operators)
@@ -647,7 +647,7 @@ def custom_jk_uhf(mol, dm, *args):
     
     '''
    
-    All = ch.load_choleskyList_3_IndFormat()
+    All = ch.load_choleskyList_3_IndFormat(infile=V2b_file)
     # currently, we are loading A from memory each time get_jk is called (every HF iteration)
     # it may be possible to give the scf object aribtrary attributes
     # which would allow the following A and Adag matricies to be stored
@@ -745,11 +745,11 @@ def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm
     if on_the_fly:
         if verb >= 4:
             print("==== computing two-body interactions on the fly ====")
-        mf.get_jk = custom_jk_uhf
+        mf.get_jk = custom_jk_uhf(V2b_file=V2b_file)
     else:
         if verb >= 4:
             print("==== computing and storing two-body tensor in memory ====")
-        Alist = ch.load_choleskyList_GAFQMCformat(verb =(verb>4))
+        Alist = ch.load_choleskyList_GAFQMCformat(infile=V2b_file, verb =(verb>4))
         #Alist = ch.load_choleskyList_3_IndFormat(verb =(verb>4))
         fERI = ch.factoredERIs_updateable(Alist[2], M, verb=(verb>4))
         eri = fERI.full()
