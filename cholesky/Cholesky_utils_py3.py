@@ -10,7 +10,7 @@ from pyscf.gto import getints_by_shell
 from V2b_inspect import load_V2b_dump, save_V2b_dump, sym_2d_unpack, sym_2d_pack
 import pyqmc.matrices.gms as gms
 
-def save_choleskyList_GAFQMCformat(Ncv, M, CVlist, outfile="V2b_AO_cholesky.mat"):
+def save_choleskyList_GAFQMCformat(Ncv, M, CVlist, outfile="V2b_AO_cholesky.mat", verb=False):
     '''
     This function converts from a list of square-matrix Cholesky vectors, to a numpy
     array containing the lower diagonal (LD) form of each CV with shape = (Ncv, M*(M+1)/2). This is
@@ -18,14 +18,17 @@ def save_choleskyList_GAFQMCformat(Ncv, M, CVlist, outfile="V2b_AO_cholesky.mat"
     '''
     #M = int(np.sqrt(2*CV_LD.shape[1]))
     CVarray = np.empty((Ncv, M*(M+1)//2))
-    print (CVarray.shape)
+    if verb:
+        print (CVarray.shape)
     for i in range(Ncv):
         # convert from a 1-D vector, to a MxM matrix rep.
         # insert factor of 1/sqrt(2)        
         Lmat = CVlist[i].reshape(M,M)*(1/np.sqrt(2))
-        print (i, Lmat.shape)
+        if verb:
+            print (i, Lmat.shape)
         sym_2d_pack(Lmat,CVarray[i])
-    print ("Lmat shape = ", Lmat.shape)
+    if verb:
+        print ("Lmat shape = ", Lmat.shape)
     save_V2b_dump(CVarray.T, outfile, dbg=1)
 
 def load_choleskyList_GAFQMCformat(infile="V2b_AO_cholesky.mat", verb=False):
