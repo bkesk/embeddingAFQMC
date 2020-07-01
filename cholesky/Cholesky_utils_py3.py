@@ -840,24 +840,29 @@ def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8, prescreen=True):
         row = np.einsum('g,gjk',Alist[:,i,l],AdagList)
         return row
 
+    def update_diag(L):
+        '''
+        compute the number to update the diagonal by
+        '''
+        M = L.shape[0]
+        Lshp = L.reshape((M*M))
+        return Lshp**2
 
+    #TODO: see if you can fix all of the np.array reshaping
     delCol = np.zeros((nbasis*nbasis),dtype=bool)
     # let's use a numpy array with a fixed size here, we can simply discard the unused part latter
     #   - also store both L, and Ldag using the '3-index' format L = [gamma,i,l]
-    #choleskyVecAO = []; 
     choleskyNum = 0
     choleskyNumGuess= Alist.shape[0] # max Cholesky vectors for this method is the number of 
                                      #   transformed Cholesky vectors (no reason to go on)
     choleskyVecMO = np.zeros((choleskyNumGuess,nbasis,nbasis))
-    Vdiag = diagonal(Alist, AdagList) 
+    Vdiag = diagonal(Alist, AdagList).reshape((nbasis*nbasis))
 
-    #print(Vdiag)
     if prescreen: # zero small diagonal matrix elements - see J. Chem. Phys. 118, 9481 (2003)
         imax = np.argmax(Vdiag); vmax = Vdiag[imax]
         toScreen = np.less(Vdiag, tol*tol/vmax)
         Vdiag[toScreen] = 0.0
-        #CRITICAL BUG : somehow, vmax is a vector, should be a single value - be careful about
-        #               using (M,M) shape, and (M*M) shape!
+
     while choleskyNum <= choleskyNumGuess:
         imax = np.argmax(Vdiag); vmax = Vdiag[imax]
         print("Inside modified Cholesky {:<9} {:26.18e}".format(choleskyNum, vmax))
@@ -866,13 +871,15 @@ def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8, prescreen=True):
             print('\n')
             break
         else:
-            oneVec = (row(Alist,AdagList,imax) - row(choleskyVecMO,choleskyVecMO))/np.sqrt(vmax)
-            #choleskyVecAO.append( oneVec )
+            # TODO we can slice choleskyVecMO[:choleskyNum,:,:] here
+            oneVec = (row(Alist,AdagList,imax) - row(choleskyVecMO,choleskyVecMO,imax))/np.sqrt(vmax)
+            print(f'oncVec = {oneVec}')
+            # another reshape ...
             if prescreen:
-                oneVec[delCol]=0.0
-            choleskyVecAO[choleskyNum,:,:]=oneVec 
+                oneVec[delCol.reshape(nbasis,nbasis)]=0.0
+            choleskyVecMO[choleskyNum,:,:]=oneVec 
             choleskyNum+=1
-            Vdiag -= oneVec**2
+            Vdiag -= update_diag(oneVec)
             if prescreen:
                 Vdiag, removed = dampedPrescreenCond(Vdiag, vmax, tol)
                 delCol[removed] = True # save 'removed' indices for future use
@@ -880,7 +887,7 @@ def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8, prescreen=True):
     if prescreen:
         print(f'Dynamic screening removed following pair indices: {delCol}')
 
-    return choleskyNum, choleskyVecAO[:choleskyNum].reshape((choleskyNum,nbasis*nbasis))
+    return choleskyNum, choleskyVecMO[:choleskyNum].reshape((choleskyNum,nbasis*nbasis))
 
 def getCholeskyExternal_full(nbasis, Alist, tol=1e-8):
     # perform a Cholesky decomposition on a factorized representation of V
