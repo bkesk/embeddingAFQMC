@@ -1827,6 +1827,39 @@ def get_embedding_constant(mol, C, nfc, debug=False):
 
     return 2*Vd - Vx
 
+def get_embedding_constant_CV(C, Alist, AdagList, debug=False):
+    '''
+    Computes the embedding constant from MO basis Cholesky vectors
+    
+    NOTES:- make cuts before calling in C, Alist, AdagList
+          - no need for C, its assumed that Alist / AdagList as in correct basis
+    
+    Inputs:
+    C - array containing just the inactive orbitals
+    Alist, AdagList - restricted to frozen orbitals
+    '''
+    Vd = np.einsum('gii,gjj->',Alist,AdagList)
+    Vx = np.einsum('gij,gji->',Alist,AdagList)
+    
+    return 2*Vd - Vx 
+
+def get_embedding_potential_CV(nfc, C, Alist, AdagList, debug=False):
+    '''
+    Computes the embedding potential from MO basis Cholesky vectors
+    
+    NOTES: make cuts before calling in C, Alist, AdagList
+    '''
+    G_core = np.eye(nfc)
+    # compute the direct term as G_{I L} * V_{I j k L} -> Pyscf (Chemists') notation, want (IL|jk) mo integrals
+    print('[+] computing Vd ...')
+    Vd = np.einsum('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],AdagList[:, nfc:, nfc:])
+
+# compute the direct term as G_{I L} * V_{i J k L} -> Pyscf (Chemists') notation, want (iL|Jk) mo integrals
+    print('[+] computing Vx ...')
+    Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,:nfc,nfc:],AdagList[:,nfc:,:nfc])
+    
+    return 2*Vd - Vx
+
 def get_one_body_embedding(mol, C, nfc, debug=False):
     '''
     Computes and returns the contributions to the embedding / downfolding Hamiltonian due to the one-body terms in the full Hilbert space

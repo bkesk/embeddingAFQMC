@@ -646,7 +646,6 @@ def custom_jk_uhf(mol, dm, V2b_file='V2b_AO_cholesky.mat', *args):
     dm - reduces single particle density matrix (should have format dm=[dm_a,dm_b])
     
     '''
-   
     All = ch.load_choleskyList_3_IndFormat(infile=V2b_file)
     # currently, we are loading A from memory each time get_jk is called (every HF iteration)
     # it may be possible to give the scf object aribtrary attributes
@@ -745,7 +744,11 @@ def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm
     if on_the_fly:
         if verb >= 4:
             print("==== computing two-body interactions on the fly ====")
-        mf.get_jk = custom_jk_uhf(V2b_file=V2b_file)
+            
+        def _custom_jk(mol,dm,*args):
+            custom_jk_uhf(mol, dm, V2b_file=V2b_file, *args)
+            
+        mf.get_jk = _custom_jk #(mf.mol,dm,V2b_file=V2b_file)
     else:
         if verb >= 4:
             print("==== computing and storing two-body tensor in memory ====")
@@ -901,3 +904,71 @@ def check_rdm1(dm):
     print(("dm_a is symmetric? - {}".format(dmat.check_symmetric(dm[0], verb=True))))
     print(("dm_b is symmetric? - {}".format(dmat.check_symmetric(dm[1], verb=True))))
     print(("dm is symmetric? - {}".format(dmat.check_symmetric(dm[0]+dm[1], verb=True))))
+
+def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b_AO_cholesky.mat',V1b_source='one_body_gms',debug=False):
+    '''
+    high level function to produce the embedding / downfolding Hamiltonian
+    saves the results to files
+
+    gets CVs from V2b_source, which chould contain the GTO basis CVs
+    similarly for V1b_source
+
+    Inputs:
+    
+    Outputs:
+    > saves the following files
+    '''
+    
+    # 1. read in orbitals (go ahead and remove the last ntrim orbitals)
+    eigen = gms.EigenGms()
+    eigen.read(ename,verbose=True)
+    if ntrim > 0:
+        C = eigen.alpha[:,:-ntrim]
+    else:
+        C = eigen.alpha
+    MActive = C.shape[1] - nfc
+
+    # 2. read CVs from file, and transform to MO basis
+    M, Ncv, CVlist, CVdagList = ch.load_choleskyList_3_IndFormat(infile=V2b_source)
+
+    # 3. perform CD on transformed CVs - restricted to ACTIVE SPACE
+    if ntrim > 0:
+        Alist = ch.ao2mo_cholesky(C,CVlist[:-ntrim])
+        AdagList = ch.ao2mo_cholesky(C,CVdagList[:-ntrim])
+    else:
+        Alist = ch.ao2mo_cholesky(C,CVlist)
+        AdagList = ch.ao2mo_cholesky(C,CVdagList)
+    NcvActive, CVsActive = ch.getCholeskyExternal_new(MActive, Alist[:,nfc:,nfc:], AdagList[:,nfc:,nfc:], tol=tol)
+
+    # 4. save CVs to new file
+    ch.save_choleskyList_GAFQMCformat(NcvActive, MActive, CVsActive, outfile='V2b_MO_cholesky-active.mat')
+
+    # 5. load K,S from one_body_gms
+    #       - transform to MO basis (active space)
+    #       - compute embedding potential, add to K_active
+    Mfull, K, S = ch.load_oneBody_gms(V1b_source)
+    S_MO = ch.ao2mo_mat(C,S)
+    K_MO = ch.ao2mo_mat(C,K)
+
+    S_active = S_MO[nfc:,nfc:]
+    K_active = K_MO[nfc:,nfc:]
+
+    print(f'shape of K_active is {K_active.shape}')
+    if nfc > 0:
+        K_active+=ch.get_embedding_potential_CV(nfc, C, Alist, AdagList)
+    
+    # 6. save one body terms
+    ch.save_oneBody_gms(MActive, K_active, S_active, outfile='one_body_gms-active')
+    
+    # 7. compute constant Energy
+    #       - E_K = trace K over core orbitals
+    #       - E_V = embedding constant from V2b
+    if nfc > 0:
+        E_K = 2*np.einsum('ii->',K_MO[:nfc,:nfc])
+        E_V = ch.get_embedding_constant_CV(C,Alist[:,:nfc,:nfc],AdagList[:,:nfc,:nfc])
+    else:
+        E_K=0.0
+        E_V=0.0
+
+    # 8. print constant energy
+    print(f'E_0 = Enuc + E_K + E_V = {Enuc + E_K + E_V} with:\n  - Enuc = {Enuc}\n  - E_K = {E_K}\n  - E_V = {E_V}')
