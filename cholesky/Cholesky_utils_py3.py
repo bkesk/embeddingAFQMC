@@ -10,12 +10,37 @@ from pyscf.gto import getints_by_shell
 from V2b_inspect import load_V2b_dump, save_V2b_dump, sym_2d_unpack, sym_2d_pack
 import pyqmc.matrices.gms as gms
 
+'''
+ TODO : need to standardize how we are working:
+
+        What format do we want to work with the CVs in? -> numpy array with shape (Ncv,M,M)
+                 - this should allow quick linear algebra operations on the last 2 axes (row-major arrays)
+                 - avoids constant "reshape()" calls which needlessly harm peformance we actually need shape 
+                   (Ncv,M,M) vs (Ncv, M*M) for some operations. or a clever way to transpose the CVs
+        
+        Structure: How can we structure the code so that we don't keep copy-pasting the same CD algorithm just using
+                      different functions to get the diagonal, and to get the rows?
+           
+                  def cholesky(..., row=V2b_row, diag=V2b_diag) ?
+                       # do work
+                       return num_cholesky, cvs
+
+                  - For this to work, all row / coloumn functions need to take the same arguments (and ignore extra args)
+                     which is doable, since they work in essentially the same way
+        
+         naming! horribly inconsistent!!!
+
+'''
+
 def save_choleskyList_GAFQMCformat(Ncv, M, CVlist, outfile="V2b_AO_cholesky.mat", verb=False):
     '''
     This function converts from a list of square-matrix Cholesky vectors, to a numpy
     array containing the lower diagonal (LD) form of each CV with shape = (Ncv, M*(M+1)/2). This is
     the format that the GAFQMC code will expect.
     '''
+    # Q: Does this work with CVlist = [CV1, CV2, ... ,CV_Ncv] w. CV.shape = M*M (old method)
+    #               and with CVlist = np.array() w/ shape (Ncv,M,M) (new method)
+    #               it looks like it does, we have a 'reshape into the new shape
     #M = int(np.sqrt(2*CV_LD.shape[1]))
     CVarray = np.empty((Ncv, M*(M+1)//2))
     if verb:
@@ -23,7 +48,7 @@ def save_choleskyList_GAFQMCformat(Ncv, M, CVlist, outfile="V2b_AO_cholesky.mat"
     for i in range(Ncv):
         # convert from a 1-D vector, to a MxM matrix rep.
         # insert factor of 1/sqrt(2)        
-        Lmat = CVlist[i].reshape((M,M))*(1/np.sqrt(2))
+        Lmat = CVlist[i].reshape((M,M))*(1/np.sqrt(2)) #TODO: remove reshape one np.array version fully implemented!
         if verb:
             print (i, Lmat.shape)
         sym_2d_pack(Lmat,CVarray[i])
@@ -207,6 +232,60 @@ def V2b_diagonal(mol, intor_name='int2e_sph', verb=None):
         
     return Vdiag
 
+def V2b_diagonal_Array(mol, intor_name='int2e_sph', verb=None):
+    '''
+    using upper case indecies for shell index (I,J,K,L, etc.), and lower case for
+    orbital index (i,j,k,l, etc.). 
+
+    Here, the 2-body V diagonal is constructed without a complete reconstruction of V.
+    However, the pyscf integral library (actually lincint) will only allow us to access integrals 
+    shell/shell (not orbital by orbital).
+
+    ***** Imprtant Note: Pyscf seems to use the "chemist's" notation for index ordering
+    i.e. the returned integrals are (il|jk) as opposed to the 'physicists' notation <ij|kl>.
+    
+    '''
+
+    if verb is None:
+        verb = mol.verbose
+
+    nbasis  = mol.nao_nr()
+    nShells = mol.nbas
+    if verb > 5:
+        print("# of shells: ", nShells)
+   
+    Vdiag =np.zeros((nbasis,nbasis))
+
+    index_Map = map_shellIndex(mol)
+    if verb > 5:
+        print("index map")
+        print("length of map:", len(index_Map))
+        for entry in index_Map:
+            print(entry)
+    
+    pairIndS = 0
+    for I in range(nShells):
+        for L in range(nShells):
+            J = I
+            K = L
+            shell_ints = getints_by_shell(intor_name, (I,L,J,K), mol._atm, mol._bas, mol._env)
+            if verb > 5:
+                print(shell_ints.shape)
+            for i in range(shell_ints.shape[0]):
+                for l in range(shell_ints.shape[1]):
+                    j = i
+                    k = l
+                    if verb > 5:
+                        print("(I,L,J,K) = (%i,%i,%i,%i), (i,l,j,k) = (%i,%i,%i,%i) " % (I,L,J,K,i,l,j,k))
+                    i_global = index_Map.index((I,i))
+                    l_global = index_Map.index((L,l))
+                    Vdiag[i_global, l_global] = shell_ints[i,l,j,k]
+            if verb > 5:
+                print("shell pair index = ", pairIndS)
+            pairIndS += 1
+        
+    return Vdiag
+
 def V2b_row(mol, mu, CVlist=None, intor_name='int2e_sph', verb=None, use_list=False):
     '''
     using upper case indecies for shell index (I,J,K,L, etc.), and lower case for
@@ -338,6 +417,97 @@ def V2b_row(mol, mu, CVlist=None, intor_name='int2e_sph', verb=None, use_list=Fa
         if verb > 4:
             print("   Vrow - A*A^dag (i.e. residual matrix row):", Vrow)
             print("   A*A^dag (direct function call to build_row()):", build_row(CVlist, i_global*nbasis + l_global, nbasis))
+            print("   delta Vrow: ", Vrow_temp - Vrow)
+            print("\n   *** *** *** ***\n")
+            
+    return Vrow
+
+def V2b_row_Array(mol, mu, Alist=None, intor_name='int2e_sph', verb=None):
+    '''
+    using upper case indecies for shell index (I,J,K,L, etc.), and lower case for
+    orbital index (i,j,k,l, etc.). 
+
+    Here, the 2-body V row is constructed without a complete reconstruction of V.
+    However, the pyscf integral library (actually lincint) will only allow us to access integrals 
+    shell/shell (not orbital by orbital).
+
+    returns row V_mu_nu of the 2-body interaction tensor.
+
+    ***** Imprtant Note: Pyscf seems to use the 'chemists" notation for index ordering
+    i.e. the returned integrals are (il|jk) as opposed to the 'physicists' notation <ij|kl>.
+    
+    '''    
+    if verb is None:
+        verb = mol.verbose
+
+    nbasis  = mol.nao_nr()
+    nShells = mol.nbas
+    if verb > 5:
+        print("# of shells: ", nShells)
+   
+    Vrow=np.zeros((nbasis,nbasis)) # row indices are (i,l), column are (j,k)
+
+    index_Map = map_shellIndex(mol)
+    if verb > 5:
+        print("index map")
+        print("length of map:", len(index_Map))
+        for entry in index_Map:
+            print(entry)
+    
+    pairIndS = 0
+    
+    num_shells= mol.nbas
+
+    # TODO: cleanup
+    i_global = mu // nbasis
+    l_global = mu % nbasis
+
+    #i_global=mu[0]
+    #l_global=mu[1]
+    
+    I, i = index_Map[i_global]
+    L, l = index_Map[l_global]
+
+    Vrow = GTO_ints_shellInd(mol, shell_range=[I,I+1,L,L+1,0,num_shells,0,num_shells], verb=(verb>5))[i,l,:,:]
+ 
+    if Alist is not None and len(Alist) > 0:
+             
+        def build_row(Alist, mu, debug=False):
+            '''
+            compute the diagonal of V from the set of vectors, A
+            if a,b are pair indices:
+        
+            V_ab = sum_g (A^g_a * (A^g)^dagger_b)
+            
+            and the diagnonl is given by: 
+            V_aa = sum_g (A^g_a *((A^g)^dagger_a))
+            
+            Alist is a 3-D numpy array with shape (# cholesky vectors, nbasis, nbasis)
+            '''
+            
+            #TODO: implement for complex CVs
+            #AdagList=np.transpose(Alist.conj(),axes=[0,2,1]) # how expensive is this?
+            
+            M = Alist.shape[1] #int(np.sqrt(Alist.shape[1]))
+            i = mu // M
+            l = mu % M
+            print(f'M={M} i={i} l={l}')
+            #row = np.einsum('g,gjk',Alist[:,i,l],AdagList)
+            row = np.einsum('g,gjk',Alist[:,i,l],Alist) # this works since A are real
+
+            return row
+
+        Ncv = len(Alist)
+        if verb > 4:
+            print("\n   *** V2b_row: debug info ***\n")
+            print("Vrow direct from integrals", Vrow)
+            Vrow_temp = Vrow.copy()
+
+        Vrow = Vrow - build_row(Alist, mu)
+    
+        if verb > 4:
+            print("   Vrow - A*A^dag (i.e. residual matrix row):", Vrow)
+            print("   A*A^dag (direct function call to build_row()):", build_row(Alist, i_global*nbasis + l_global, nbasis))
             print("   delta Vrow: ", Vrow_temp - Vrow)
             print("\n   *** *** *** ***\n")
             
@@ -900,13 +1070,18 @@ def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8, prescreen=True, d
     choleskyVecMO = np.zeros((choleskyNumGuess,nbasis,nbasis))
     Vdiag = diagonal(Alist, AdagList).reshape((nbasis*nbasis))
 
+    # np.argmax returns the 'flattened' max index -> need to 'unflatten'
+    #     this is much easier than reshaping the arrays
+    unflatten = lambda x : (x // nbasis, x % nbasis)
+    
     if prescreen: # zero small diagonal matrix elements - see J. Chem. Phys. 118, 9481 (2003)
         imax = np.argmax(Vdiag); vmax = Vdiag[imax]
         toScreen = np.less(Vdiag, tol*tol/vmax)
         Vdiag[toScreen] = 0.0
 
     while choleskyNum <= choleskyNumGuess:
-        imax = np.argmax(Vdiag); vmax = Vdiag[imax]
+        imax = np.argmax(Vdiag)
+        vmax = Vdiag[imax]
         print("Inside modified Cholesky {:<9} {:26.18e}".format(choleskyNum, vmax))
         if(vmax<tol or choleskyNum==nbasis*nbasis):
             print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
@@ -1003,6 +1178,69 @@ def getCholesky_OnTheFly(mol=None, tol=1e-8, prescreen=True, debug=False, use_li
             Vdiag -= oneVec**2
             if prescreen:
                 Vdiag, dump = dampedPrescreenCond(Vdiag, vmax, tol)
+            if debug:
+                print("oneVec: ", oneVec)
+                print("oneVec**2: ", oneVec**2)
+                print("Vdiag: ", Vdiag)
+                print("\n*** *** *** ***\n")
+
+    return choleskyNum, choleskyVecAO
+
+def getCholesky_OnTheFly_Array(mol=None, tol=1e-8, prescreen=True, debug=False):
+    # TODO - implement using numpy array for CholeksyList instead of python list
+    nbasis  = mol.nao_nr()
+    
+    delCol = np.zeros((nbasis,nbasis),dtype=bool)
+    choleskyNum = 0
+    choleskyNumGuess= 16*nbasis # TODO should base guess on tol
+    choleskyVecAO = np.zeros((choleskyNumGuess,nbasis,nbasis))
+    
+    # Note: this is an MXM array ... not 1xM*M
+    Vdiag = V2b_diagonal_Array(mol).copy()
+
+    if debug:
+        print("Initial Vdiag: ", Vdiag)
+        verb = 5
+    else:
+        verb = 4
+
+    # np.argmax returns the 'flattened' max index -> need to 'unflatten'
+    #     this is much easier (computationally) than reshaping the arrays
+    unflatten = lambda x : (x // nbasis, x % nbasis)
+    
+    # Note: screening should work still as long as we keep shape of Vdiag consistent!
+    if prescreen: # zero small diagonal matrix elements - see J. Chem. Phys. 118, 9481 (2003)
+        imax = np.argmax(Vdiag); vmax = Vdiag[unflatten(imax)]
+        toScreen = np.less(Vdiag, tol*tol/vmax)
+        Vdiag[toScreen] = 0.0
+    
+    while True:
+        imax = np.argmax(Vdiag)
+        vmax = Vdiag[unflatten(imax)]
+        print(f'{vmax}')
+        print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax) )
+        if(vmax<tol or choleskyNum==nbasis*nbasis):
+            print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
+            print('\n')
+            break
+        else:
+            if debug:
+                print("\n*** getCholesky_OnTheFly: debugging info*** \n")
+                print("imax = ", imax, " (i,l) ", (imax // nbasis, imax % nbasis))
+                print("vmax = ", vmax)
+            #_bookmark
+            Vrow = V2b_row_Array(mol, imax, Alist=choleskyVecAO[:choleskyNum,:,:], verb=verb)
+            oneVec = Vrow/np.sqrt(vmax)
+            if prescreen:
+                oneVec[delCol]=0.0
+            choleskyVecAO[choleskyNum] = oneVec                
+            if debug:
+                print("Vrow", Vrow)
+            choleskyNum+=1
+            Vdiag -= oneVec**2
+            if prescreen:
+                Vdiag, removed = dampedPrescreenCond(Vdiag, vmax, tol) # should work for any shape of Vdiag (1xM*M or MxM)
+                delCol[removed] = True 
             if debug:
                 print("oneVec: ", oneVec)
                 print("oneVec**2: ", oneVec**2)
