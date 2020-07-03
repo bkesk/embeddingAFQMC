@@ -1856,7 +1856,7 @@ def get_embedding_potential_CV(nfc, C, Alist, AdagList, debug=False):
 
 # compute the direct term as G_{I L} * V_{i J k L} -> Pyscf (Chemists') notation, want (iL|Jk) mo integrals
     print('[+] computing Vx ...')
-    Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,:nfc,nfc:],AdagList[:,nfc:,:nfc])
+    Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],AdagList[:,:nfc,nfc:])
     
     return 2*Vd - Vx
 
