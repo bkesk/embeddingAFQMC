@@ -207,7 +207,7 @@ def V2b_diagonal(mol, intor_name='int2e_sph', verb=None):
         
     return Vdiag
 
-def V2b_row(mol, mu, CVlist=None, intor_name='int2e_sph', verb=None):
+def V2b_row(mol, mu, CVlist=None, intor_name='int2e_sph', verb=None, use_list=False):
     '''
     using upper case indecies for shell index (I,J,K,L, etc.), and lower case for
     orbital index (i,j,k,l, etc.). 
@@ -265,38 +265,76 @@ def V2b_row(mol, mu, CVlist=None, intor_name='int2e_sph', verb=None):
         
     # We need to be able to account for the CVs already computed:
     # we are only substracting/ accessing the element in each CV at the relevant mu = (i,l) index.
-    if CVlist is not None:
+    if CVlist is not None and len(CVlist) > 0:
         
-        def build_row(CVlist, mu, M):
-            '''
-            Builds just the mu^th row of the V_{mu nu} tensor, using the Cholesky Vectors.
-            '''
-            if verb > 6:
-                print("DEBUG: from 'build_row()': mu =" , mu)
-            Vrow = np.zeros((M*M))
-            i = mu // M
-            l = mu % M
-            for g in range(len(CVlist)):
-                A = CVlist[g]
+        if use_list == False:
+            def build_row(CVlist, mu, debug=False):
+                '''
+                compute the diagonal of V from the set of vectors, A
+                if a,b are pair indices:
+        
+                V_ab = sum_g (A^g_a * (A^g)^dagger_b)
+                
+                and the diagnonl is given by: 
+                V_aa = sum_g (A^g_a *((A^g)^dagger_a))
+                
+                CVlist is a python List of 2-D numpy arrays -> want to make it a 3-D numpy array 
+                for quicker execution
+                '''
+            
+                # first, convert to numpy array:
+                Alist=np.array(CVlist)
+                M = int(np.sqrt(Alist.shape[1])) # CVlist has flattened Cholesky Vectors length = M^2
+                Ncv = Alist.shape[0]
+                Alist=Alist.reshape((Ncv,M,M))
+                AdagList=np.transpose(Alist.conj(),axes=[0,2,1])
+                #print(f'[DBUG] Alist = {Alist}')
+                #print(f'[DBUG] Alist.shape = {Alist.shape}')
+
+            
+                i = mu // M
+                l = mu % M
+                row = np.einsum('g,gjk',Alist[:,i,l],AdagList)
+                #print(f'[DBUG] row.shape = {row.shape}')
+                return row.reshape(M*M)
+
+        else:
+            def build_row(CVlist, mu, M):
+                # CRITICAL TODO: this function needs to be much more efficient! see newwe implementations
+                
+                #Builds just the mu^th row of the V_{mu nu} tensor, using the Cholesky Vectors.
+            
                 if verb > 6:
-                    print("DEBUG: from 'build_row()': A[", g,"] =" , A)
-                Amu = A[i*M + l]
-                if verb > 6:
-                    print ("DEBUG: from 'build_row()': A[", g,"]_mu =" , Amu)
-                Adag = A.reshape((M,M)).conj().T
-                if verb > 6:
-                    print("DEBUG: from 'build_row()': A^dag[", g,"] =" , Adag)
-                Vrow += Amu*Adag.reshape((M*M))
-            if verb > 6:
-                print("DEBUG: from 'build_row()': Vrow =" , Vrow)
-            return Vrow
+                    print("DEBUG: from 'build_row()': mu =" , mu)
+                Vrow = np.zeros((M*M))
+                i = mu // M
+                l = mu % M
+                for g in range(len(CVlist)):
+                    A = CVlist[g]
+                    if verb > 6:
+                        print("DEBUG: from 'build_row()': A[", g,"] =" , A)
+                    Amu = A[i*M + l]
+                    if verb > 6:
+                        print ("DEBUG: from 'build_row()': A[", g,"]_mu =" , Amu)
+                    Adag = A.reshape((M,M)).conj().T
+                    if verb > 6:
+                        print("DEBUG: from 'build_row()': A^dag[", g,"] =" , Adag)
+                    Vrow += Amu*Adag.reshape((M*M))
+                    if verb > 6:
+                        print("DEBUG: from 'build_row()': Vrow =" , Vrow)
+                return Vrow
 
         Ncv = len(CVlist)
         if verb > 4:
             print("\n   *** V2b_row: debug info ***\n")
             print("Vrow direct from integrals", Vrow)
             Vrow_temp = Vrow.copy()
-        Vrow = Vrow - build_row(CVlist, i_global*nbasis + l_global, nbasis)
+
+        if use_list==False:
+            Vrow = Vrow - build_row(CVlist, mu)
+        else:
+            Vrow = Vrow - build_row(CVlist, i_global*nbasis + l_global, nbasis)
+
         if verb > 4:
             print("   Vrow - A*A^dag (i.e. residual matrix row):", Vrow)
             print("   A*A^dag (direct function call to build_row()):", build_row(CVlist, i_global*nbasis + l_global, nbasis))
@@ -617,7 +655,7 @@ def dampedPrescreenCond(diag, vmax, delta, s=None):
     diag[toScreen] = 0.0
     return diag, toScreen
 
-def getCholesky(fromInts = True, onTheFly=True, mol=None, CVfile='V2b_AO_cholesky.mat', tol=1e-8, prescreen=True, debug=False):
+def getCholesky(fromInts = True, onTheFly=True, mol=None, CVfile='V2b_AO_cholesky.mat', tol=1e-8, prescreen=True, debug=False,use_list=False):
     '''
     Front-end 'wrapper' for various Cholesky implentations. The combination of settings 'fromInts'
     and 'onTheFly' determine the precise implementation used.
@@ -654,7 +692,7 @@ def getCholesky(fromInts = True, onTheFly=True, mol=None, CVfile='V2b_AO_cholesk
         print("Obtaining two-body matrix elements from integrals (pyscf)")
         if onTheFly:
             print("Computing Integrals on the fly")
-            Ncv, CVs = getCholesky_OnTheFly(mol=mol, tol=tol, prescreen=prescreen, debug=debug)
+            Ncv, CVs = getCholesky_OnTheFly(mol=mol, tol=tol, prescreen=prescreen, debug=debug,use_list=use_list)
         else:
             print("Storing full V_{ijkl} super-matrix in memomry")
             Ncv, CVs = getCholeskyAO(mol=mol, tol=tol, prescreen=prescreen, debug=debug)
@@ -922,8 +960,8 @@ def getCholeskyExternal_full(nbasis, Alist, tol=1e-8):
 
     return choleskyNum, choleskyVecAO
 
-def getCholesky_OnTheFly(mol=None, tol=1e-8, prescreen=True, debug=False):
-
+def getCholesky_OnTheFly(mol=None, tol=1e-8, prescreen=True, debug=False, use_list=False):
+    # TODO - implement using numpy array for CholeksyList instead of python list
     nbasis  = mol.nao_nr()
         
     choleskyVecAO = []; choleskyNum = 0
@@ -956,7 +994,7 @@ def getCholesky_OnTheFly(mol=None, tol=1e-8, prescreen=True, debug=False):
                 print("\n*** getCholesky_OnTheFly: debugging info*** \n")
                 print("imax = ", imax, " (i,l) ", (imax // nbasis, imax % nbasis))
                 print("vmax = ", vmax)
-            Vrow = V2b_row(mol, imax, CVlist=choleskyVecAO, verb=verb)
+            Vrow = V2b_row(mol, imax, CVlist=choleskyVecAO, verb=verb, use_list=use_list)
             oneVec = Vrow/np.sqrt(vmax)
             choleskyVecAO.append(oneVec)                
             if debug:
