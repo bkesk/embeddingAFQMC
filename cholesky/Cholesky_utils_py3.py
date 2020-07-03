@@ -458,12 +458,9 @@ def V2b_row_Array(mol, mu, Alist=None, intor_name='int2e_sph', verb=None):
     
     num_shells= mol.nbas
 
-    # TODO: cleanup
+
     i_global = mu // nbasis
     l_global = mu % nbasis
-
-    #i_global=mu[0]
-    #l_global=mu[1]
     
     I, i = index_Map[i_global]
     L, l = index_Map[l_global]
@@ -491,7 +488,6 @@ def V2b_row_Array(mol, mu, Alist=None, intor_name='int2e_sph', verb=None):
             M = Alist.shape[1] #int(np.sqrt(Alist.shape[1]))
             i = mu // M
             l = mu % M
-            print(f'M={M} i={i} l={l}')
             #row = np.einsum('g,gjk',Alist[:,i,l],AdagList)
             row = np.einsum('g,gjk',Alist[:,i,l],Alist) # this works since A are real
 
@@ -1217,8 +1213,7 @@ def getCholesky_OnTheFly_Array(mol=None, tol=1e-8, prescreen=True, debug=False):
     while True:
         imax = np.argmax(Vdiag)
         vmax = Vdiag[unflatten(imax)]
-        print(f'{vmax}')
-        print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax) )
+        print( "Inside modified Cholesky {:<9} {:26.18e}".format(choleskyNum, vmax) )
         if(vmax<tol or choleskyNum==nbasis*nbasis):
             print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
             print('\n')
