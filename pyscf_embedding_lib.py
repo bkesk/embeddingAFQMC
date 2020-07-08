@@ -753,10 +753,8 @@ def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm
         if verb >= 4:
             print("==== computing and storing two-body tensor in memory ====")
         Alist = ch.load_choleskyList_GAFQMCformat(infile=V2b_file, verb =(verb>4))
-        #Alist = ch.load_choleskyList_3_IndFormat(verb =(verb>4))
         fERI = ch.factoredERIs_updateable(Alist[2], M, verb=(verb>4))
         eri = fERI.full()
-        #mf._eri = ao2mo.restore(4, eri, M)
         mf._eri = eri
         print("Shape of mf._eri is {}".format(mf._eri.shape))
 
@@ -971,4 +969,7 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
         E_V=0.0
 
     # 8. print constant energy
-    print(f'E_0 = Enuc + E_K + E_V = {Enuc + E_K + E_V} with:\n  - Enuc = {Enuc}\n  - E_K = {E_K}\n  - E_V = {E_V}')
+    E_const = Enuc + E_K + E_V
+    print(f'E_0 = Enuc + E_K + E_V = {E_const} with:\n  - Enuc = {Enuc}\n  - E_K = {E_K}\n  - E_V = {E_V}')
+
+    return E_const

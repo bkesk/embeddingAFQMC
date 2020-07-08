@@ -56,6 +56,7 @@ def load_choleskyList_GAFQMCformat(infile="V2b_AO_cholesky.mat", verb=False):
         CVarray[i] = Lmat.flatten()
     return M, Ncv, CVarray
 
+
 def load_choleskyList_3_IndFormat(infile="V2b_AO_cholesky.mat",verb=False):
     '''
     This function converts from a list of square-matrix Cholesky vectors, to a numpy
