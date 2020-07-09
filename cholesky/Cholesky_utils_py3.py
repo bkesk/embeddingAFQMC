@@ -154,13 +154,6 @@ def get_one_body_H(mol, verb=False):
         print(K)
     return K
 
-def save_oneBody_gms(M, K, S, outfile="one_body_gms"):
-    O = gms.OneBodyGms()
-    O.nbasis = M
-    O.S = S
-    O.H1 = K
-    O.write(outfile)
-
 def map_shellIndex(mol):
     '''
     this function constructs and returns a mapping between the global basis set index, mu, and
@@ -859,7 +852,7 @@ def getCholesky(fromInts = True, onTheFly=True, mol=None, CVfile='V2b_AO_cholesk
         print("Obtaining two-body matrix elements from integrals (pyscf)")
         if onTheFly:
             print("Computing Integrals on the fly")
-            Ncv, CVs = getCholesky_OnTheFly(mol=mol, tol=tol, prescreen=prescreen, debug=debug,use_list=use_list)
+            Ncv, CVs = getCholesky_OnTheFly_Array(mol=mol, tol=tol, prescreen=prescreen, debug=debug)
         else:
             print("Storing full V_{ijkl} super-matrix in memomry")
             Ncv, CVs = getCholeskyAO(mol=mol, tol=tol, prescreen=prescreen, debug=debug)
