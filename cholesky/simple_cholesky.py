@@ -10,7 +10,9 @@ from pyscf.gto import getints_by_shell
 #from V2b_inspect import load_V2b_dump, save_V2b_dump, sym_2d_unpack, sym_2d_pack
 #import pyqmc.matrices.gms as gms
 
-from .input_mod import save_cholesky, load_cholesky, save_one_body, load_one_body
+#from .input_mod import save_cholesky, load_cholesky, save_one_body, load_one_body
+
+from .integrals.base import IntegralGenerator
 
 '''
 
@@ -43,7 +45,7 @@ Format - Choleksy vectors will be called generically called A, and will be store
 
 '''
 
-class IntegralGenerator:
+class _IntegralGenerator:
     def __init__(self,*args,**kwargs):
         pass
 
@@ -54,7 +56,7 @@ class IntegralGenerator:
         return self.get_diagonal(*args,**kwargs)
 
 
-class GTOIntegralGenerator(IntegralGenerator):
+class _GTOIntegralGenerator(IntegralGenerator):
     def __init__(self,mol,*args,**kwargs):
         super().__init__(*args,**kwargs)
         self.mol = mol
