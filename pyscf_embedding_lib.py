@@ -903,7 +903,7 @@ def check_rdm1(dm):
     print(("dm_b is symmetric? - {}".format(dmat.check_symmetric(dm[1], verb=True))))
     print(("dm is symmetric? - {}".format(dmat.check_symmetric(dm[0]+dm[1], verb=True))))
 
-def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b_AO_cholesky.mat',V1b_source='one_body_gms',debug=False):
+def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b_AO_cholesky.mat',V1b_source='one_body_gms',transform_only=False,debug=False):
     '''
     high level function to produce the embedding / downfolding Hamiltonian
     saves the results to files
@@ -930,14 +930,17 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
     M, Ncv, CVlist, CVdagList = ch.load_choleskyList_3_IndFormat(infile=V2b_source)
 
     # 3. perform CD on transformed CVs - restricted to ACTIVE SPACE
-    if ntrim > 0:
-        Alist = ch.ao2mo_cholesky(C,CVlist[:-ntrim])
-        AdagList = ch.ao2mo_cholesky(C,CVdagList[:-ntrim])
-    else:
-        Alist = ch.ao2mo_cholesky(C,CVlist)
-        AdagList = ch.ao2mo_cholesky(C,CVdagList)
-    NcvActive, CVsActive = ch.getCholeskyExternal_new(MActive, Alist[:,nfc:,nfc:], AdagList[:,nfc:,nfc:], tol=tol)
+    Alist = ch.ao2mo_cholesky(C,CVlist)
+    AdagList = ch.ao2mo_cholesky(C,CVdagList)
 
+    # in some cases, we only want to transform CVs to the MO basis
+    if transform_only: 
+        print('Only transforming from GTO to orthonormal basis with no additional Cholesky decomposition')
+        NcvActive = Ncv
+        CVsActive = Alist[:,nfc:,nfc:]
+    else:
+        NcvActive, CVsActive = ch.getCholeskyExternal_new(MActive, Alist[:,nfc:,nfc:], AdagList[:,nfc:,nfc:], tol=tol)
+    
     # 4. save CVs to new file
     ch.save_choleskyList_GAFQMCformat(NcvActive, MActive, CVsActive, outfile='V2b_MO_cholesky-active.mat')
 
