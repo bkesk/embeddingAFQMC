@@ -903,6 +903,27 @@ def check_rdm1(dm):
     print(("dm_b is symmetric? - {}".format(dmat.check_symmetric(dm[1], verb=True))))
     print(("dm is symmetric? - {}".format(dmat.check_symmetric(dm[0]+dm[1], verb=True))))
 
+def make_transformed_eigen(C, S, outname=None, restricted=True):
+    '''
+    Tranforms the coefficient matrix, C, to the MO basis
+
+    psi_i = Sum_mu C_{mu i} g_mu
+    
+    we are changing basis to:
+
+    psi_i = Sum_j C^bar_{j i} psi_j 
+    
+    C^bar should be a trivial diagonal matrix in any case I can think of at the present.
+    It can be computed as: C^bar = C^dag S C, where S is the GTO basis overlap matrix
+    '''
+    Cbar = np.zeros(C.shape)
+    Cbar = C.conj().T*S*C
+
+    if outname is not None:
+        write_orbs(Cbar, M=Cbar.shape[0], output=outname, restricted=restricted)
+
+    return Cbar
+
 def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b_AO_cholesky.mat',V1b_source='one_body_gms',transform_only=False,debug=False):
     '''
     high level function to produce the embedding / downfolding Hamiltonian
@@ -948,6 +969,7 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
     #       - transform to MO basis (active space)
     #       - compute embedding potential, add to K_active
     Mfull, K, S = ch.load_oneBody_gms(V1b_source)
+    make_transformed_eigen(C, S, outname='embedding.eigen_gms')
     S_MO = ch.ao2mo_mat(C,S)
     K_MO = ch.ao2mo_mat(C,K)
 
