@@ -969,7 +969,7 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
     #       - transform to MO basis (active space)
     #       - compute embedding potential, add to K_active
     Mfull, K, S = ch.load_oneBody_gms(V1b_source)
-    make_transformed_eigen(C, S, outname='embedding.eigen_gms')
+    make_transformed_eigen(C[:,nfc:], S, outname='embedding.eigen_gms')
     S_MO = ch.ao2mo_mat(C,S)
     K_MO = ch.ao2mo_mat(C,K)
 
