@@ -28,11 +28,11 @@ class FactoredIntegralGenerator(IntegralGenerator):
         super().__init__(*args,**kwargs)
         self.vectors = vectors
         
-    def get_row(self, index,current_vectors=None,*args,**kwargs):
-        if current_vectors is None:
-            return factored_row(index, Alist=kwargs['Alist'])
+    def get_row(self, index,*args,**kwargs):
+        if 'Alist' in kwargs:
+            return factored_row(index,A=self.vectors,Adag=self.vectors) - factored_row(index,A=kwargs['Alist'],Adag=kwargs['Alist'])
         else:
-            return factored_row(index,A=self.vectors,Adag=self.vectors) - factored_row(index,A=current_vectors,Adag=current_vectors)
+            return factored_row(index,A=self.vectors,Adag=self.vectors)
 
     def get_diagonal(self,*args,**kwargs):
         return factored_diagonal(self.vectors,self.vectors)
@@ -40,11 +40,12 @@ class FactoredIntegralGenerator(IntegralGenerator):
 
 def factored_row(index, A, Adag):
     M = A.shape[1]
-    i = ind // M
-    l = ind % M
-    row = np.tensordot(Alist[:,i,l],AdagList)
+    i = index // M
+    l = index % M
+    row = np.tensordot(A[:,i,l],Adag,axes=[0,0])
     return row
 
 def factored_diagonal(A,Adag):
-    diag = np.tensordot(A,Adag,axes=[0,0])
+    #diag = np.tensordot(A,Adag,axes=[0,0])
+    diag = np.einsum('gil,gil->il', A, Adag)
     return diag
