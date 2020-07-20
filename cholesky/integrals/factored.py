@@ -27,6 +27,7 @@ class FactoredIntegralGenerator(IntegralGenerator):
     def __init__(self,vectors,*args,**kwargs):
         super().__init__(*args,**kwargs)
         self.vectors = vectors
+        self.nbasis = vectors.shape[1]
         
     def get_row(self, index,*args,**kwargs):
         if 'Alist' in kwargs:

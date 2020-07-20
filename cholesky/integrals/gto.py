@@ -9,6 +9,7 @@ class GTOIntegralGenerator(IntegralGenerator):
     def __init__(self,mol,*args,**kwargs):
         super().__init__(*args,**kwargs)
         self.mol = mol
+        self.nbasis = mol.nao_nr()
     
     def get_row(self, index,*args,**kwargs):
         return V2b_row(self.mol, index, Alist=kwargs['Alist'])

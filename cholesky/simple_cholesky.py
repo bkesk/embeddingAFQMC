@@ -285,6 +285,7 @@ def dampedPrescreenCond(diag, vmax, delta, s=None):
 
 def cholesky(mol=None,integral_generator=None,tol=1.0E-8,prescreen=True,debug=False):
 
+    # this may not be necessary ... only some integral generators would need a mol object
     if mol is None:
         raise TypeError('mol must be a Pyscf molecule object')
     
@@ -292,8 +293,8 @@ def cholesky(mol=None,integral_generator=None,tol=1.0E-8,prescreen=True,debug=Fa
         raise TypeError('Invalide integral generator, must have base class IntegralGenerator')
     
     # TDOO check inputs
-    nbasis  = mol.nao_nr()
-    
+    nbasis = integral_generator.nbasis
+
     delCol = np.zeros((nbasis,nbasis),dtype=bool)
     choleskyNum = 0
     choleskyNumGuess= 10*nbasis # TODO should base guess on tol

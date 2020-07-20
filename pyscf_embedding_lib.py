@@ -8,6 +8,9 @@ import pyqmc.matrices.gms as gms # written by Wirawan Purwanto to all read/write
 import embedding.cholesky as ch # written by Kyle Eskridge to implement a Cholesky decomp. in pyscf, along with other support functions.
 import embedding.density as dmat
 
+from embedding.cholesky.integrals.factored import FactoredIntegralGenerator
+from embedding.cholesky.simple_cholesky import cholesky
+
 def ortho_check(mf,C=None,mol=None,verb=False):
     '''
     Check the orthonormality of the set of orbitals in C (assuming that C is given in terms of
@@ -924,7 +927,7 @@ def make_transformed_eigen(C, S, outname=None, restricted=True):
 
     return Cbar
 
-def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b_AO_cholesky.mat',V1b_source='one_body_gms',transform_only=False,debug=False):
+def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b_AO_cholesky.mat',V1b_source='one_body_gms',transform_only=False,debug=False,mol=None):
     '''
     high level function to produce the embedding / downfolding Hamiltonian
     saves the results to files
@@ -937,7 +940,9 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
     Outputs:
     > saves the following files
     '''
-    
+
+    #TODO: remove the mol input, depends on some changes in the simple_cholesky module
+
     # 1. read in orbitals (go ahead and remove the last ntrim orbitals)
     eigen = gms.EigenGms()
     eigen.read(ename,verbose=True)
@@ -960,8 +965,11 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
         NcvActive = Ncv
         CVsActive = Alist[:,nfc:,nfc:]
     else:
-        NcvActive, CVsActive = ch.getCholeskyExternal_new(MActive, Alist[:,nfc:,nfc:], AdagList[:,nfc:,nfc:], tol=tol)
-    
+        V = FactoredIntegralGenerator(Alist[:,nfc:,nfc:])
+        #NcvActive, CVsActive = ch.getCholeskyExternal_new(MActive, Alist[:,nfc:,nfc:], AdagList[:,nfc:,nfc:], tol=tol)
+        NcvActive, CVsActive = cholesky(mol=mol,integral_generator=V,tol=tol)
+        del(V)
+
     # 4. save CVs to new file
     ch.save_choleskyList_GAFQMCformat(NcvActive, MActive, CVsActive, outfile='V2b_MO_cholesky-active.mat')
 
