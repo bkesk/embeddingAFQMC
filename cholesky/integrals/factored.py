@@ -43,10 +43,9 @@ def factored_row(index, A, Adag):
     M = A.shape[1]
     i = index // M
     l = index % M
-    row = np.tensordot(A[:,i,l],Adag,axes=[0,0])
+    row = np.einsum('g,gjk',A[:,i,l],Adag)
     return row
 
 def factored_diagonal(A,Adag):
-    #diag = np.tensordot(A,Adag,axes=[0,0])
     diag = np.einsum('gil,gil->il', A, Adag)
     return diag
