@@ -1,6 +1,8 @@
 import numpy as np
 import h5py as h5
 
+from pyscf import gto
+
 import pyqmc.matrices.gms as gms
 
 def transform_dm(P, D, S):
@@ -52,6 +54,35 @@ def make_Cbar(C,D,S):
     Cbar = np.matmul(D.conj().T,S)
     Cbar = np.matmul(Cbar,C)
     return Cbar
+
+def cross_ovlp(mol1,mol2):
+    atm3, bas3, env3 = gto.conc_env(mol1._atm, mol1._bas, mol1._env,
+                        mol2._atm, mol2._bas, mol2._env)
+    cross_ovlp = gto.moleintor.getints('int1e_ovlp_sph', atm3, bas3, env3)
+    return cross_ovlp
+
+def cross_gto_rdm1(dm,cross_ovlp):
+    '''
+    Project dm to a different basis
+
+    Inputs cross_ovlp is the overlap matrix of Basis 1 (dm basis) concatenated with Basis 2 (new basis),
+       the cross overlap matrix, Sbar has sectors:
+        1.  Sbar11 - overlap matrix for Basis 1
+        2.  Sbar22 - overlap matrix for Basis 2
+        3.  Sbar12 - cross-basis overlap between 1 to 2
+        3.  Sbar21 - cross-basis overlap between 2 to 1
+
+    '''
+    print(f' [ ] dm = {dm} \n    -- shape ={dm.shape} ')
+    M1 = dm.shape[-1]
+    Sbar21 = cross_ovlp[M1:,:M1]
+    Sbar12 = cross_ovlp[:M1,M1:]
+    print(f' [ ] shape of Sbar21 is {Sbar21.shape}')
+    print(f' [ ] shape of Sbar12 is {Sbar12.shape}')
+    P = np.matmul(Sbar21,dm)
+    P = np.matmul(P,Sbar12)
+    print(f' [ ] shape of P is {P.shape}')
+    return P
 
 def check_symmetric(M, delta=1.0E-6, verb=False):
     #Test = M
