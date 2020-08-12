@@ -2,7 +2,7 @@ import numpy as np
 
 from pyscf import gto
 
-def compute_sigma2(mol, C):
+def compute_sigma2(mol, C_in):
     '''
     Computes the second central moment orbital spread (sigma2) for each orbital in C
     sigma2 = sqrt(mu_2) with
@@ -18,6 +18,7 @@ def compute_sigma2(mol, C):
       - can use einsum, or np.matul to allow arrays too
       - if that fails, add a type check
     '''
+    C = np.matrix(C_in)
     M,N = C.shape
     
     C_dag = C.conj().T
@@ -35,10 +36,6 @@ def compute_sigma2(mol, C):
         for a in range(3):
             centroid[a] = C_dag[i,:]*r[a]*C[:,i]
         # compute <r^2> - <r>^2
-        '''expect_rsq = np.matmaul(C_dag[i,:],rsq)
-        expect_rsq = np.matmaul(expect_rqs,C[:,i])
-        print(f'expect_rsq = {expect_rsq} with shape {expect_rsq.shape}')
-        centroid_sq = np.dot(centroid,centroid)'''
         mu_2 = (C_dag[i,:]*rsq*C[:,i] - np.dot(centroid,centroid))[0,0]
         
         sigma_2 = np.sqrt(mu_2)
