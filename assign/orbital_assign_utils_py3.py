@@ -128,7 +128,7 @@ def get_orbital_sizeDist(fname, startIndex=0, metric=None, localHotSpotPos=[0.0,
     index = startIndex
     
     for line in f:
-        lineList = line.split()
+        lineList = line.split(maxsplit=3)
         centL = lineList[3]
         cent = eval(centL)
         rad = metric(cent)
