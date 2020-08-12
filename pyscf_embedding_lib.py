@@ -50,7 +50,6 @@ def dm_swap(mf, swapInds):
     '''
     Need a previously-run mf object (preferably 'converged')
     '''
-    #dm = scf.hf.from_chk(mol, chkfile)
     occ = mf.mo_coeff
     print("Coeffs", occ)
 
