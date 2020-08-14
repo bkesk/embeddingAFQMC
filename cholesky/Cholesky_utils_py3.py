@@ -1176,13 +1176,16 @@ def getCholesky_OnTheFly(mol=None, tol=1e-8, prescreen=True, debug=False, use_li
 
     return choleskyNum, choleskyVecAO
 
-def getCholesky_OnTheFly_Array(mol=None, tol=1e-8, prescreen=True, debug=False):
+def getCholesky_OnTheFly_Array(mol=None, tol=1e-8, prescreen=True, debug=False, max_cv=None):
     # TODO - implement using numpy array for CholeksyList instead of python list
     nbasis  = mol.nao_nr()
     
     delCol = np.zeros((nbasis,nbasis),dtype=bool)
     choleskyNum = 0
-    choleskyNumGuess= 16*nbasis # TODO should base guess on tol
+    if max_cv:
+        choleskyNumGuess = max_cv
+    else:
+        choleskyNumGuess = 10*nbasis 
     choleskyVecAO = np.zeros((choleskyNumGuess,nbasis,nbasis))
     
     # Note: this is an MXM array ... not 1xM*M
@@ -1208,7 +1211,7 @@ def getCholesky_OnTheFly_Array(mol=None, tol=1e-8, prescreen=True, debug=False):
         imax = np.argmax(Vdiag)
         vmax = Vdiag[unflatten(imax)]
         print( "Inside modified Cholesky {:<9} {:26.18e}".format(choleskyNum, vmax), flush=True)
-        if(vmax<tol or choleskyNum==nbasis*nbasis):
+        if(vmax<tol or choleskyNum==nbasis*nbasis or choleskyNum >= choleskyNumGuess):
             print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
             print('\n')
             break
