@@ -283,7 +283,7 @@ def dampedPrescreenCond(diag, vmax, delta, s=None):
     diag[toScreen] = 0.0
     return diag, toScreen
 
-def cholesky(mol=None,integral_generator=None,tol=1.0E-8,prescreen=True,debug=False):
+def cholesky(mol=None,integral_generator=None,tol=1.0E-8,prescreen=True,debug=False,max_cv=None):
 
     # this may not be necessary ... only some integral generators would need a mol object
     if mol is None:
@@ -297,7 +297,11 @@ def cholesky(mol=None,integral_generator=None,tol=1.0E-8,prescreen=True,debug=Fa
 
     delCol = np.zeros((nbasis,nbasis),dtype=bool)
     choleskyNum = 0
-    choleskyNumGuess= 10*nbasis # TODO should base guess on tol
+    
+    if max_cv:
+        choleskyNumGuess = max_cv
+    else:
+        choleskyNumGuess = 10*nbasis
     cholesky_vec = np.zeros((choleskyNumGuess,nbasis,nbasis))
     
     Vdiag = integral_generator.diagonal(mol) #V2b_diagonal_Array(mol).copy()
