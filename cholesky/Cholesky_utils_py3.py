@@ -1207,7 +1207,7 @@ def getCholesky_OnTheFly_Array(mol=None, tol=1e-8, prescreen=True, debug=False):
     while True:
         imax = np.argmax(Vdiag)
         vmax = Vdiag[unflatten(imax)]
-        print( "Inside modified Cholesky {:<9} {:26.18e}".format(choleskyNum, vmax) )
+        print( "Inside modified Cholesky {:<9} {:26.18e}".format(choleskyNum, vmax), flush=True)
         if(vmax<tol or choleskyNum==nbasis*nbasis):
             print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
             print('\n')
