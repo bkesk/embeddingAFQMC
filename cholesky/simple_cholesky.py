@@ -325,7 +325,7 @@ def cholesky(mol=None,integral_generator=None,tol=1.0E-8,prescreen=True,debug=Fa
         imax = np.argmax(Vdiag)
         vmax = Vdiag[unflatten(imax)]
         print( "Inside modified Cholesky {:<9} {:26.18e}".format(choleskyNum, vmax) )
-        if(vmax<tol or choleskyNum==nbasis*nbasis):
+        if(vmax<tol or choleskyNum==nbasis*nbasis or choleskyNum >= choleskyNumGuess):
             print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
             print('\n')
             break
