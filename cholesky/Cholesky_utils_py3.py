@@ -100,7 +100,7 @@ def load_choleskyList_3_IndFormat(infile="V2b_AO_cholesky.mat",verb=False,is_com
         CVarrayDag = np.empty((Ncv, M, M))
     for i in range(Ncv):
         if verb:
-            print ("vector ", i)
+            print ("vector ", i, flush=True)
         # convert from a 1-D vector, to a MxM matrix rep.
         # insert factor of sqrt(2) (pyscf and GAFQMC use different conventions concerning including/exclding the factor of 1/2 in the matrix elements        
         Lmat = sym_2d_unpack(CV_LD[i])*np.sqrt(2) #CVlist[i].reshape(M,M)*(1/np.sqrt(2)))
@@ -974,6 +974,33 @@ def ao2mo_cholesky(C,choleskyVecAO):
     Cdag = C.conj().T # for readability below!
     temp = np.einsum('im,gmn->gin',Cdag,choleskyVecAO)
     choleskyVecMO = np.einsum('gin,nj->gij',temp,C)
+    return choleskyVecMO
+
+
+def ao2mo_cholesky_matmul(C,choleskyVecAO):
+    '''
+    Transforms the GTO basis Cholesky vectors to the MO basis
+    
+    Inputs:
+       C - coefficient matrix which specifies the desired MOs in terms of the GTO basis funcs
+             (index conventions: C_{mu i} mu - GTO index, i - MO index)
+       choleskyVecAO - numpy array containing the Cholesky vectors represented in the GTO basis
+
+    index convention for CVs: choleskyVecAO[gamma, mu, nu]
+                with gamma - Cholesky vector index
+                     mu,nu - GTO indices 
+           * similar for MO basis mu,nu -> i,l
+
+    Returns:
+       chleskyVecMO - numpy array containing the Cholesky vectros represented in the MO basis
+    '''
+    ncv = choleskyVecAO.shape[0]
+    nGTO, nactive = C.shape
+    Cdag = C.conj().T # for readability below!
+    choleskyVecMO = np.zeros((choleskyVecAO.shape))
+    for i in range ncv:
+        temp = np.matmul(Cdag,choleskyVecAO[i,:,:])
+        choleskyVecMO[i,:,:] = np.matmul(temp,C)
     return choleskyVecMO
 
 def ao2mo_mat(C, mat):

@@ -952,13 +952,14 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
     MActive = C.shape[1] - nfc
 
     # 2. read CVs from file, and transform to MO basis
-    print(f'reading in Cholesky vectors from {infile}', flush=True)
+    print(f'reading in Cholesky vectors from {V2b_source}', flush=True)
     if is_complex:
         M, Ncv, CVlist, CVdagList = ch.load_choleskyList_3_IndFormat(infile=V2b_source,is_complex=True)
     else:
-        M, Ncv, CVlist = ch.load_choleskyList_3_IndFormat(infile=V2b_source,is_complex=False)
+        M, Ncv, CVlist = ch.load_choleskyList_3_IndFormat(infile=V2b_source,verb=True,is_complex=False)
     # 3. perform CD on transformed CVs - restricted to ACTIVE SPACE
-    Alist = ch.ao2mo_cholesky(C,CVlist)
+    Alist = ch.ao2mo_cholesky_matmul(C,CVlist)
+    #Alist = ch.ao2mo_cholesky_matmul(C,CVlist)
     if is_complex:
         AdagList = ch.ao2mo_cholesky(C,CVdagList)
 
