@@ -952,6 +952,7 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
     MActive = C.shape[1] - nfc
 
     # 2. read CVs from file, and transform to MO basis
+    print(f'reading in Cholesky vectors from {infile}', flush=True)
     if is_complex:
         M, Ncv, CVlist, CVdagList = ch.load_choleskyList_3_IndFormat(infile=V2b_source,is_complex=True)
     else:
@@ -963,21 +964,24 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
 
     # in some cases, we only want to transform CVs to the MO basis
     if transform_only: 
-        print('Only transforming from GTO to orthonormal basis with no additional Cholesky decomposition')
+        print('Only transforming from GTO to orthonormal basis with no additional Cholesky decomposition', flush=True)
         NcvActive = Ncv
         CVsActive = Alist[:,nfc:,nfc:]
     else:
+        print(f'Performing Cholesky decomposition within the active space num. frozen occupied={nfc}, num. truncated virtual={ntrim}', flush=True)
         V = FactoredIntegralGenerator(Alist[:,nfc:,nfc:])
         #NcvActive, CVsActive = ch.getCholeskyExternal_new(MActive, Alist[:,nfc:,nfc:], AdagList[:,nfc:,nfc:], tol=tol)
         NcvActive, CVsActive = cholesky(mol=mol,integral_generator=V,tol=tol)
         del(V)
 
     # 4. save CVs to new file
+    print('saving Cholesky vectors',flush=True)
     ch.save_choleskyList_GAFQMCformat(NcvActive, MActive, CVsActive, outfile='V2b_MO_cholesky-active.mat')
 
     # 5. load K,S from one_body_gms
     #       - transform to MO basis (active space)
     #       - compute embedding potential, add to K_active
+    print('Computin one-body embedding terms', flush=True)
     Mfull, K, S = ch.load_oneBody_gms(V1b_source)
     make_transformed_eigen(C[:,nfc:], S, outname='embedding.eigen_gms')
     S_MO = ch.ao2mo_mat(C,S)
@@ -994,11 +998,13 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
             K_active+=ch.get_embedding_potential_CV(nfc, C, Alist, AdagList=None,is_complex=False)
 
     # 6. save one body terms
+    print('Saving one-body embedding terms', flush-True)
     ch.save_oneBody_gms(MActive, K_active, S_active, outfile='one_body_gms-active')
     
     # 7. compute constant Energy
     #       - E_K = trace K over core orbitals
     #       - E_V = embedding constant from V2b
+    print('Computing constant energy', flush=True)
     if nfc > 0:
         E_K = 2*np.einsum('ii->',K_MO[:nfc,:nfc])
         
