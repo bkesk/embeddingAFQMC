@@ -926,7 +926,7 @@ def make_transformed_eigen(C, S, outname=None, restricted=True):
 
     return Cbar
 
-def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b_AO_cholesky.mat',V1b_source='one_body_gms',transform_only=False,debug=False,mol=None):
+def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b_AO_cholesky.mat',V1b_source='one_body_gms',transform_only=False,debug=False,mol=None,is_complex=True):
     '''
     high level function to produce the embedding / downfolding Hamiltonian
     saves the results to files
@@ -952,11 +952,14 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
     MActive = C.shape[1] - nfc
 
     # 2. read CVs from file, and transform to MO basis
-    M, Ncv, CVlist, CVdagList = ch.load_choleskyList_3_IndFormat(infile=V2b_source)
-
+    if is_complex:
+        M, Ncv, CVlist, CVdagList = ch.load_choleskyList_3_IndFormat(infile=V2b_source,is_complex=True)
+    else:
+        M, Ncv, CVlist = ch.load_choleskyList_3_IndFormat(infile=V2b_source,is_complex=False)
     # 3. perform CD on transformed CVs - restricted to ACTIVE SPACE
     Alist = ch.ao2mo_cholesky(C,CVlist)
-    AdagList = ch.ao2mo_cholesky(C,CVdagList)
+    if is_complex:
+        AdagList = ch.ao2mo_cholesky(C,CVdagList)
 
     # in some cases, we only want to transform CVs to the MO basis
     if transform_only: 
@@ -985,8 +988,11 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
 
     print(f'shape of K_active is {K_active.shape}')
     if nfc > 0:
-        K_active+=ch.get_embedding_potential_CV(nfc, C, Alist, AdagList)
-    
+        if is_complex:
+            K_active+=ch.get_embedding_potential_CV(nfc, C, Alist, AdagList,is_complex=True)
+        else:
+            K_active+=ch.get_embedding_potential_CV(nfc, C, Alist, AdagList=None,is_complex=False)
+
     # 6. save one body terms
     ch.save_oneBody_gms(MActive, K_active, S_active, outfile='one_body_gms-active')
     
@@ -995,7 +1001,11 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
     #       - E_V = embedding constant from V2b
     if nfc > 0:
         E_K = 2*np.einsum('ii->',K_MO[:nfc,:nfc])
-        E_V = ch.get_embedding_constant_CV(C,Alist[:,:nfc,:nfc],AdagList[:,:nfc,:nfc])
+        
+        if is_complex:
+            E_V = ch.get_embedding_constant_CV(C,Alist[:,:nfc,:nfc],AdagList[:,:nfc,:nfc],is_complex=is_complex)
+        else:
+            E_V = ch.get_embedding_constant_CV(C,Alist[:,:nfc,:nfc],AdagList=None,is_complex=False)
     else:
         E_K=0.0
         E_V=0.0
