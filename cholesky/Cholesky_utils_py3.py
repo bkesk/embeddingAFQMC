@@ -82,7 +82,7 @@ def load_choleskyList_GAFQMCformat(infile="V2b_AO_cholesky.mat", verb=False):
     return M, Ncv, CVarray
 
 
-def load_choleskyList_3_IndFormat(infile="V2b_AO_cholesky.mat",verb=False):
+def load_choleskyList_3_IndFormat(infile="V2b_AO_cholesky.mat",verb=False,is_complex=True):
     '''
     This function converts from a list of square-matrix Cholesky vectors, to a numpy
     array containing the lower diagonal (LD) form of each CV with shape = (Ncv, M*(M+1)/2). This is
@@ -96,7 +96,8 @@ def load_choleskyList_3_IndFormat(infile="V2b_AO_cholesky.mat",verb=False):
     if verb:
         print ("M = ", M, ", Ncv = ", Ncv)
     CVarray = np.empty((Ncv, M, M))
-    CVarrayDag = np.empty((Ncv, M, M))
+    if is_complex:
+        CVarrayDag = np.empty((Ncv, M, M))
     for i in range(Ncv):
         if verb:
             print ("vector ", i)
@@ -106,8 +107,12 @@ def load_choleskyList_3_IndFormat(infile="V2b_AO_cholesky.mat",verb=False):
         if verb: 
             print (Lmat.shape)
         CVarray[i] = Lmat
-        CVarrayDag[i] = Lmat.conj().T
-    return M, Ncv, CVarray, CVarrayDag
+        if is_complex:
+            CVarrayDag[i] = Lmat.conj().T
+    if is_complex:
+        return M, Ncv, CVarray, CVarrayDag
+    else:
+        return M, Ncv, CVarray
 
 def save_oneBody_gms(M, K, S, outfile='one_body_gms'):
     '''
@@ -2095,7 +2100,7 @@ def get_embedding_constant(mol, C, nfc, debug=False):
 
     return 2*Vd - Vx
 
-def get_embedding_constant_CV(C, Alist, AdagList, debug=False):
+def get_embedding_constant_CV(C, Alist, AdagList, debug=False, is_complex=True):
     '''
     Computes the embedding constant from MO basis Cholesky vectors
     
@@ -2106,12 +2111,16 @@ def get_embedding_constant_CV(C, Alist, AdagList, debug=False):
     C - array containing just the inactive orbitals
     Alist, AdagList - restricted to frozen orbitals
     '''
-    Vd = np.einsum('gii,gjj->',Alist,AdagList)
-    Vx = np.einsum('gij,gji->',Alist,AdagList)
+    if is_complex:
+        Vd = np.einsum('gii,gjj->',Alist,AdagList)
+        Vx = np.einsum('gij,gji->',Alist,AdagList)
+    else:
+        Vd = np.einsum('gii,gjj->',Alist,Alist)
+        Vx = np.einsum('gij,gji->',Alist,Alist)
     
     return 2*Vd - Vx 
 
-def get_embedding_potential_CV(nfc, C, Alist, AdagList, debug=False):
+def get_embedding_potential_CV(nfc, C, Alist, AdagList, debug=False,is_complex=True):
     '''
     Computes the embedding potential from MO basis Cholesky vectors
     
@@ -2119,12 +2128,20 @@ def get_embedding_potential_CV(nfc, C, Alist, AdagList, debug=False):
     '''
     G_core = np.eye(nfc)
     # compute the direct term as G_{I L} * V_{I j k L} -> Pyscf (Chemists') notation, want (IL|jk) mo integrals
-    print('[+] computing Vd ...')
-    Vd = np.einsum('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],AdagList[:, nfc:, nfc:])
+    if is_complex:
+        print('[+] computing Vd ...')
+        Vd = np.einsum('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],AdagList[:, nfc:, nfc:])
 
-# compute the direct term as G_{I L} * V_{i J k L} -> Pyscf (Chemists') notation, want (iL|Jk) mo integrals
-    print('[+] computing Vx ...')
-    Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],AdagList[:,:nfc,nfc:])
+        # compute the exchange term as G_{I L} * V_{i J k L} -> Pyscf (Chemists') notation, want (iL|Jk) mo integrals
+        print('[+] computing Vx ...')
+        Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],AdagList[:,:nfc,nfc:])
+    else:
+        print('[+] computing Vd ...')
+        Vd = np.einsum('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],Alist[:, nfc:, nfc:])
+
+        # compute the exchange term as G_{I L} * V_{i J k L} -> Pyscf (Chemists') notation, want (iL|Jk) mo integrals
+        print('[+] computing Vx ...')
+        Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],Alist[:,:nfc,nfc:])
     
     return 2*Vd - Vx
 
