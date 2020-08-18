@@ -7,6 +7,9 @@ from .base import IntegralGenerator
 
 class GTOIntegralGenerator(IntegralGenerator):
     def __init__(self,mol,*args,**kwargs):
+        if not isinstance(mol,gto.Mole):
+            raise TypeError('mol must be a Pyscf molecule object')
+
         super().__init__(*args,**kwargs)
         self.mol = mol
         self.nbasis = mol.nao_nr()
