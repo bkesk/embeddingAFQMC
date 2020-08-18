@@ -952,7 +952,7 @@ def getCholeskyExternal(nbasis, Alist, tol=1e-8):
 
     return choleskyNum, choleskyVecAO
 
-def ao2mo_cholesky(C,choleskyVecAO):
+def ao2mo_cholesky(C,choleskyVecAO,verb=False):
     '''
     Transforms the GTO basis Cholesky vectors to the MO basis
     
@@ -970,35 +970,15 @@ def ao2mo_cholesky(C,choleskyVecAO):
        chleskyVecMO - numpy array containing the Cholesky vectros represented in the MO basis
     '''
     ncv = choleskyVecAO.shape[0]
+    MA = C.shape[1]
     nGTO, nactive = C.shape
     Cdag = C.conj().T # for readability below!
-    temp = np.einsum('im,gmn->gin',Cdag,choleskyVecAO)
-    choleskyVecMO = np.einsum('gin,nj->gij',temp,C)
-    return choleskyVecMO
-
-
-def ao2mo_cholesky_matmul(C,choleskyVecAO):
-    '''
-    Transforms the GTO basis Cholesky vectors to the MO basis
-    
-    Inputs:
-       C - coefficient matrix which specifies the desired MOs in terms of the GTO basis funcs
-             (index conventions: C_{mu i} mu - GTO index, i - MO index)
-       choleskyVecAO - numpy array containing the Cholesky vectors represented in the GTO basis
-
-    index convention for CVs: choleskyVecAO[gamma, mu, nu]
-                with gamma - Cholesky vector index
-                     mu,nu - GTO indices 
-           * similar for MO basis mu,nu -> i,l
-
-    Returns:
-       chleskyVecMO - numpy array containing the Cholesky vectros represented in the MO basis
-    '''
-    ncv = choleskyVecAO.shape[0]
-    nGTO, nactive = C.shape
-    Cdag = C.conj().T # for readability below!
-    choleskyVecMO = np.zeros((choleskyVecAO.shape))
-    for i in range ncv:
+    choleskyVecMO = np.zeros((ncv,MA,MA))
+    for i in range(ncv):
+        if verb:
+            print(f'transforming vector {i}')
+            if i % 100 == 0:
+                print('',end='',flush=True)
         temp = np.matmul(Cdag,choleskyVecAO[i,:,:])
         choleskyVecMO[i,:,:] = np.matmul(temp,C)
     return choleskyVecMO
