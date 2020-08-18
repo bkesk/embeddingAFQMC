@@ -971,7 +971,8 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
         print(f'Performing Cholesky decomposition within the active space num. frozen occupied={nfc}, num. truncated virtual={ntrim}', flush=True)
         V = FactoredIntegralGenerator(Alist[:,nfc:,nfc:])
         #NcvActive, CVsActive = ch.getCholeskyExternal_new(MActive, Alist[:,nfc:,nfc:], AdagList[:,nfc:,nfc:], tol=tol)
-        NcvActive, CVsActive = cholesky(mol=mol,integral_generator=V,tol=tol)
+        #NcvActive, CVsActive = cholesky(mol=mol,integral_generator=V,tol=tol)
+        NcvActive, CVsActive = cholesky(integral_generator=V,tol=tol)
         del(V)
 
     # 4. save CVs to new file
@@ -981,7 +982,7 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
     # 5. load K,S from one_body_gms
     #       - transform to MO basis (active space)
     #       - compute embedding potential, add to K_active
-    print('Computin one-body embedding terms', flush=True)
+    print('Computing one-body embedding terms', flush=True)
     Mfull, K, S = ch.load_oneBody_gms(V1b_source)
     make_transformed_eigen(C[:,nfc:], S, outname='embedding.eigen_gms')
     S_MO = ch.ao2mo_mat(C,S)
