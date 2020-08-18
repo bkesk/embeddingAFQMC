@@ -283,12 +283,8 @@ def dampedPrescreenCond(diag, vmax, delta, s=None):
     diag[toScreen] = 0.0
     return diag, toScreen
 
-def cholesky(mol=None,integral_generator=None,tol=1.0E-8,prescreen=True,debug=False,max_cv=None):
+def cholesky(integral_generator=None,tol=1.0E-8,prescreen=True,debug=False,max_cv=None):
 
-    # this may not be necessary ... only some integral generators would need a mol object
-    if mol is None:
-        raise TypeError('mol must be a Pyscf molecule object')
-    
     if not isinstance(integral_generator, IntegralGenerator): 
         raise TypeError('Invalide integral generator, must have base class IntegralGenerator')
     
@@ -304,7 +300,7 @@ def cholesky(mol=None,integral_generator=None,tol=1.0E-8,prescreen=True,debug=Fa
         choleskyNumGuess = 10*nbasis
     cholesky_vec = np.zeros((choleskyNumGuess,nbasis,nbasis))
     
-    Vdiag = integral_generator.diagonal(mol) #V2b_diagonal_Array(mol).copy()
+    Vdiag = integral_generator.diagonal() #V2b_diagonal_Array(mol).copy()
 
     if debug:
         print("Initial Vdiag: ", Vdiag)
@@ -335,7 +331,7 @@ def cholesky(mol=None,integral_generator=None,tol=1.0E-8,prescreen=True,debug=Fa
                 print("imax = ", imax, " (i,l) ", (imax // nbasis, imax % nbasis))
                 print("vmax = ", vmax)
             #_bookmark
-            Vrow = integral_generator.row(imax, mol, Alist=cholesky_vec[:choleskyNum,:,:]) #V2b_row_Array(mol, imax, Alist=cholesky_vec[:choleskyNum,:,:], verb=verb)
+            Vrow = integral_generator.row(imax, Alist=cholesky_vec[:choleskyNum,:,:]) #V2b_row_Array(mol, imax, Alist=cholesky_vec[:choleskyNum,:,:], verb=verb)
             oneVec = Vrow/np.sqrt(vmax)
             if prescreen:
                 oneVec[delCol]=0.0
