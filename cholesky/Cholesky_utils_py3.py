@@ -995,7 +995,9 @@ def ao2mo_mat(C, mat):
     Returns:
        matMO - matrix in MO basis
     '''
-    matMO = np.einsum('im,mn,nl->il', C.conj().T,mat,C)
+    #matMO = np.einsum('im,mn,nl->il', C.conj().T,mat,C)
+    matMO = np.matmul(C.conj().T,mat)
+    matMO = np.matmul(matMO,C)
     return matMO
 
 def getCholeskyExternal_new(nbasis, Alist, AdagList, tol=1e-8, prescreen=True, debug=False):
