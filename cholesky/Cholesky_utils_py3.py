@@ -2121,11 +2121,11 @@ def get_embedding_constant_CV(C, Alist, AdagList, debug=False, is_complex=True):
     Alist, AdagList - restricted to frozen orbitals
     '''
     if is_complex:
-        Vd = np.einsum('gii,gjj->',Alist,AdagList)
-        Vx = np.einsum('gij,gji->',Alist,AdagList)
+        Vd = np.einsum('gii,gjj->',Alist,AdagList,optimize='greedy')
+        Vx = np.einsum('gij,gji->',Alist,AdagList,optimize='greedy')
     else:
-        Vd = np.einsum('gii,gjj->',Alist,Alist)
-        Vx = np.einsum('gij,gji->',Alist,Alist)
+        Vd = np.einsum('gii,gjj->',Alist,Alist,optimize='greedy')
+        Vx = np.einsum('gij,gji->',Alist,Alist,optimize='greedy')
     
     return 2*Vd - Vx 
 
@@ -2136,21 +2136,23 @@ def get_embedding_potential_CV(nfc, C, Alist, AdagList, debug=False,is_complex=T
     NOTES: make cuts before calling in C, Alist, AdagList
     '''
     G_core = np.eye(nfc)
-    # compute the direct term as G_{I L} * V_{I j k L} -> Pyscf (Chemists') notation, want (IL|jk) mo integrals
+    
     if is_complex:
+        # compute the direct term as G_{I L} * V_{I j k L} -> Pyscf (Chemists') notation, want (IL|jk) mo integrals
         print('[+] computing Vd ...')
-        Vd = np.einsum('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],AdagList[:, nfc:, nfc:])
+        Vd = np.einsum('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],AdagList[:, nfc:, nfc:],optimize='greedy')
 
         # compute the exchange term as G_{I L} * V_{i J k L} -> Pyscf (Chemists') notation, want (iL|Jk) mo integrals
         print('[+] computing Vx ...')
-        Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],AdagList[:,:nfc,nfc:])
+        Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],AdagList[:,:nfc,nfc:],optimize='greedy')
     else:
+        # compute the direct term as G_{I L} * V_{I j k L} -> Pyscf (Chemists') notation, want (IL|jk) mo integrals
         print('[+] computing Vd ...')
-        Vd = np.einsum('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],Alist[:, nfc:, nfc:])
+        Vd = np.einsum('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],Alist[:, nfc:, nfc:],optimize='greedy')
 
         # compute the exchange term as G_{I L} * V_{i J k L} -> Pyscf (Chemists') notation, want (iL|Jk) mo integrals
         print('[+] computing Vx ...')
-        Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],Alist[:,:nfc,nfc:])
+        Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],Alist[:,:nfc,nfc:],optimize='greedy')
     
     return 2*Vd - Vx
 
