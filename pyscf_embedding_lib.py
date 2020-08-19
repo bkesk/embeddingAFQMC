@@ -745,7 +745,7 @@ def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm
 
     if on_the_fly:
         if verb >= 4:
-            print("==== computing two-body interactions on the fly ====")
+            print("==== computing two-body interactions on the fly ====",flush=True)
             
         def _custom_jk(mol,dm,*args):
             custom_jk_uhf(mol, dm, V2b_file=V2b_file)
@@ -753,7 +753,7 @@ def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm
         mf.get_jk = _custom_jk
     else:
         if verb >= 4:
-            print("==== computing and storing two-body tensor in memory ====")
+            print("==== computing and storing two-body tensor in memory ====",flush=True)
         Alist = ch.load_choleskyList_GAFQMCformat(infile=V2b_file, verb =(verb>4))
         fERI = ch.factoredERIs_updateable(Alist[2], M, verb=(verb>4))
         eri = fERI.full()
@@ -766,13 +766,13 @@ def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm
 
             print("[+] customH_mf : checking integrity of provided density matrix")
             print("  [+] Trace of the density matrix alpha sector = {}".format(np.trace(dm[0])))
-            print("  [+] Trace of the density matrix beta sector = {}".format(np.trace(dm[1])))
+            print("  [+] Trace of the density matrix beta sector = {}".format(np.trace(dm[1])),flush=True)
 
-            print("DM provided -> Electronic Energy: {}".format(mf.energy_elec(dm=dm)))
+            print("DM provided -> Electronic Energy: {}".format(mf.energy_elec(dm=dm)),flush=True)
         E=mf.kernel(dm)
     elif dm_file is not None and N_frozen_occ is not None:
         if verb >= 4:
-            print("[+] customH_mf : using DM from {} with N_frozen_occ = {}".format(dm_file,N_frozen_occ))
+            print("[+] customH_mf : using DM from {} with N_frozen_occ = {}".format(dm_file,N_frozen_occ),flush=True)
         dm_full = get_dm_from_h5(dm_file, verb=(verb>=4))
         # need the number of frozen occupied orbitals to get the correct slice from the
         #   full density matrix
@@ -780,11 +780,11 @@ def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm
               dm_full[1][N_frozen_occ:M+N_frozen_occ,N_frozen_occ:M+N_frozen_occ]]
         print("[+] customH_mf : checking integrity of truncated density matrix")
         print("  [+] Trace of the truncated density matrix alpha sector = {}".format(np.trace(dm[0])))
-        print("  [+] Trace of the truncated density matrix beta sector = {}".format(np.trace(dm[1])))
+        print("  [+] Trace of the truncated density matrix beta sector = {}".format(np.trace(dm[1])),flush=True)
         E=mf.kernel(dm)
     else:
         if verb >= 4:
-            print("[+] customH_mf : no DM provided, using Pyscf default Guess")
+            print("[+] customH_mf : no DM provided, using Pyscf default Guess",flush=True)
         E=mf.kernel()
 
     return E
