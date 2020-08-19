@@ -748,9 +748,9 @@ def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm
             print("==== computing two-body interactions on the fly ====")
             
         def _custom_jk(mol,dm,*args):
-            custom_jk_uhf(mol, dm, V2b_file=V2b_file, *args)
+            custom_jk_uhf(mol, dm, V2b_file=V2b_file)
             
-        mf.get_jk = _custom_jk #(mf.mol,dm,V2b_file=V2b_file)
+        mf.get_jk = _custom_jk
     else:
         if verb >= 4:
             print("==== computing and storing two-body tensor in memory ====")
