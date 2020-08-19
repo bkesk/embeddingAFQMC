@@ -999,7 +999,7 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
             K_active+=ch.get_embedding_potential_CV(nfc, C, Alist, AdagList=None,is_complex=False)
 
     # 6. save one body terms
-    print('Saving one-body embedding terms', flush-True)
+    print('Saving one-body embedding terms', flush=True)
     ch.save_oneBody_gms(MActive, K_active, S_active, outfile='one_body_gms-active')
     
     # 7. compute constant Energy
