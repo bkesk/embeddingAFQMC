@@ -747,9 +747,12 @@ def customH_mf(mf, EnucRep, on_the_fly=True, dm_file=None, N_frozen_occ=None, dm
         if verb >= 4:
             print("==== computing two-body interactions on the fly ====",flush=True)
             
-        def _custom_jk(mol,dm,*args):
-            custom_jk_uhf(mol, dm, V2b_file=V2b_file)
+        #def _custom_jk(mol,dm,*args):
+        #    custom_jk_uhf(mol, dm, V2b_file=V2b_file)
             
+        def _custom_jk(mol,dm,*args):
+            return custom_jk_uhf(mol, dm, V2b_file=V2b_file)
+
         mf.get_jk = _custom_jk
     else:
         if verb >= 4:
