@@ -659,14 +659,14 @@ def custom_jk_uhf(mol, dm, V2b_file='V2b_AO_cholesky.mat', *args):
         print("[+] custom_jk_uhf: shape of Adag {}".format(Adag.shape))
         print("[+] custom_jk_uhf: shape of dm {}".format(dm.shape))
 
-    T_a = np.einsum('gjk,ki->gji',Adag,dm[0]) # test! using dm[0] instead of dm
-    T_b = np.einsum('gjk,ki->gji',Adag,dm[1])
+    T_a = np.einsum('gjk,ki->gji',Adag,dm[0],optimize='greedy') # test! using dm[0] instead of dm
+    T_b = np.einsum('gjk,ki->gji',Adag,dm[1],optimize='greedy')
 
-    J_a = np.einsum('gil,gjj->il',A,T_a)
-    K_a = np.einsum('gil,gji->jl',A,T_a)
+    J_a = np.einsum('gil,gjj->il',A,T_a,optimize='greedy')
+    K_a = np.einsum('gil,gji->jl',A,T_a,optimize='greedy')
     
-    J_b = np.einsum('gil,gjj->il',A,T_b)
-    K_b = np.einsum('gil,gji->jl',A,T_b)
+    J_b = np.einsum('gil,gjj->il',A,T_b,optimize='greedy')
+    K_b = np.einsum('gil,gji->jl',A,T_b,optimize='greedy')
 
     J=np.array([J_a,J_b])
     K=np.array([K_a,K_b])
