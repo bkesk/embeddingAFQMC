@@ -61,7 +61,7 @@ def cross_ovlp(mol1,mol2):
     cross_ovlp = gto.moleintor.getints('int1e_ovlp_sph', atm3, bas3, env3)
     return cross_ovlp
 
-def cross_gto_rdm1(dm,cross_ovlp):
+def cross_gto_rdm1(dm,cross_ovlp,debug=True):
     '''
     Project dm to a different basis
 
@@ -73,15 +73,21 @@ def cross_gto_rdm1(dm,cross_ovlp):
         3.  Sbar21 - cross-basis overlap between 2 to 1
 
     '''
-    print(f' [ ] dm = {dm} \n    -- shape ={dm.shape} ')
+    if debug:
+        print(f' [ ] dm = {dm} \n    -- shape ={dm.shape} ')
     M1 = dm.shape[-1]
     Sbar21 = cross_ovlp[M1:,:M1]
     Sbar12 = cross_ovlp[:M1,M1:]
-    print(f' [ ] shape of Sbar21 is {Sbar21.shape}')
-    print(f' [ ] shape of Sbar12 is {Sbar12.shape}')
+    if debug:
+        
+        print(f' [ ] shape of Sbar21 is {Sbar21.shape}')
+        print(f' [ ] shape of Sbar12 is {Sbar12.shape}')
     P = np.matmul(Sbar21,dm)
     P = np.matmul(P,Sbar12)
-    print(f' [ ] shape of P is {P.shape}')
+    if debug:
+        print(f' [ ] shape of P is {P.shape}')
+        for d in P.shape[0]:
+            print('trace of P is: {np.trace(d)}')
     return P
 
 def check_symmetric(M, delta=1.0E-6, verb=False):
