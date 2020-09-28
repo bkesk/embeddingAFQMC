@@ -1,7 +1,7 @@
 import numpy as np
 import h5py as h5
 
-from pyscf import gto
+from pyscf import gto,lib,scf
 
 import pyqmc.matrices.gms as gms
 
@@ -103,6 +103,62 @@ def check_symmetric(M, delta=1.0E-6, verb=False):
         return True
     else:
         return False
+
+def dm_swap(dm, swapInds, verb=False):
+    temp = dm # need to copy, since we need to swap rows and columns
+    for pair in swapInds:
+        dm[pair[0], :], dm[pair[1], :] = dm[pair[1], :], dm[pair[0], :]
+        dm[:,pair[0]], dm[:,pair[1]] = temp[:, pair[1]], temp[:, pair[0]]
+
+    if verb:
+        print("dm_swap:\n DM : ", dm)
+    return dm
+
+
+def dm_from_chk(chk, scf_type='rohf', verb=False):
+    f = h5.File(chk, 'r')
+    C = f['/scf/mo_coeff'][...]
+    occ = f['/scf/mo_occ'][...]
+    M = C.shape[0]
+    if verb:
+        print(f'chk={chk} : M: ', M)
+    f.close()
+
+    mol = lib.chkfile.load_mol(chk)
+    if scf_type =='rohf':
+        mf = scf.ROHF(mol)
+        dm = mf.make_rdm1(mo_coeff=C, mo_occ=occ)
+    return dm
+
+def fragment_dm(chkA, chkB, verb=True):
+    '''
+    builds a density matrix for the combined A+B system, based on the dm for A, and B respectively as:
+               |----|----|
+               |dm^A| 0  |
+    dm^{A+B} = |----|----|
+               | 0  |dm^B|
+               |----|----|
+    clearly, in the combined basis, the order of A amd B must be respected, or the rows/columns swapped accordingly.
+
+    '''
+    dmA = dm_from_chk(chkA)
+    dmB = dm_from_chk(chkB)
+    
+    if verb:
+        print(f'fragment_dm : trace of dmA alpha = {np.trace(dmA[0])}')
+        print(f'fragment_dm : trace of dmA beta  = {np.trace(dmA[1])}')
+        print(f'fragment_dm : trace of dmB alpha = {np.trace(dmB[0])}')
+        print(f'fragment_dm : trace of dmB beta  = {np.trace(dmB[1])}')
+        
+    MA = dmA.shape[1]
+    MB = dmB.shape[1]
+    
+    M = MA+MB
+    dm = np.zeros((2,M,M))
+    dm[:,:MA,:MA] = dmA
+    dm[:,MA:,MA:] = dmB
+
+    return dm
 
 if __name__ == "__main__":
     print("[+] : testing ...")

@@ -413,13 +413,21 @@ def make_rdm1_fragment(mf, chk1, chk2, verb=False):
             for j in range(dims[1]):
                 print(i,j,C[i,j])
     if verb:
-        print("printing C matrix")
+        print("make_rdm1_fragment: printing C matrix")
         print_mat(C)
+        print("make_rdm1_fragment: printing occupancy vector")
+        for i,o in enumerate(occ):
+            print(f'{i} {o}')
 
-    dm = mf.make_rdm1(mo_coeff=C, mo_occ=occ)
+    print(f' C*occ = {C*occ} \n tr(C*occ)={np.trace(C*occ)}')
+
+    dm = np.dot(C.conj().T*occ, C)
+    #dm = np.einsum('mi,i,')
+
+    #dm = mf.make_rdm1(mo_coeff=C, mo_occ=occ)
     if verb:
         print("DM: ", dm)
-    return dm
+    return np.array(dm)
 
 def make_rdm1_fragment_UHF(mf, chk1, chk2, verb=False):
     '''
