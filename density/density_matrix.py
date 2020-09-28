@@ -86,8 +86,8 @@ def cross_gto_rdm1(dm,cross_ovlp,debug=True):
     P = np.matmul(P,Sbar12)
     if debug:
         print(f' [ ] shape of P is {P.shape}')
-        for d in P.shape[0]:
-            print('trace of P is: {np.trace(d)}')
+        for d in range(P.shape[0]):
+            print(f'trace of P[{d}] is: {np.trace(P[d])}')
     return P
 
 def check_symmetric(M, delta=1.0E-6, verb=False):
