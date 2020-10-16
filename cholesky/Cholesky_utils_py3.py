@@ -1253,7 +1253,7 @@ def getCholesky_OnTheFly_Array(mol=None, tol=1e-8, prescreen=True, debug=False, 
                 print("Vdiag: ", Vdiag)
                 print("\n*** *** *** ***\n")
 
-    return choleskyNum, choleskyVecAO
+    return choleskyNum, choleskyVecAO[:choleskyNum]
 
 def getCholesky_OnTheFly_MOBasis(C, mol=None, tol=1e-8, prescreen=True, debug=False):
 
