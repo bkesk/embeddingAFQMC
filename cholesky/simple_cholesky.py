@@ -286,7 +286,7 @@ def dampedPrescreenCond(diag, vmax, delta, s=None):
 def cholesky(integral_generator=None,tol=1.0E-8,prescreen=True,debug=False,max_cv=None):
 
     if not isinstance(integral_generator, IntegralGenerator): 
-        raise TypeError('Invalide integral generator, must have base class IntegralGenerator')
+        raise TypeError('Invalid integral generator, must have base class IntegralGenerator')
     
     # TDOO check inputs
     nbasis = integral_generator.nbasis
@@ -349,5 +349,5 @@ def cholesky(integral_generator=None,tol=1.0E-8,prescreen=True,debug=False,max_c
                 print("Vdiag: ", Vdiag)
                 print("\n*** *** *** ***\n")
 
-    return choleskyNum, cholesky_vec
+    return choleskyNum, cholesky_vec[:choleskyNum,:,:]
 
