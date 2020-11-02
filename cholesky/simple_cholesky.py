@@ -349,5 +349,5 @@ def cholesky(integral_generator=None,tol=1.0E-8,prescreen=True,debug=False,max_c
                 print("Vdiag: ", Vdiag)
                 print("\n*** *** *** ***\n")
 
-    return choleskyNum, cholesky_vec
+    return choleskyNum, cholesky_vec[:choleskyNum,:,:]
 
