@@ -324,6 +324,8 @@ def cholesky(integral_generator=None,tol=1.0E-8,prescreen=True,debug=False,max_c
         if(vmax<tol or choleskyNum==nbasis*nbasis or choleskyNum >= choleskyNumGuess):
             print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
             print('\n')
+            if (choleskyNum >= choleskyNumGuess):
+                print(f'WARNING!!! : reached maximum number of Cholesky vectors {choleskyNumGuess}. \n use \'max_cv\' option to use a larger value. ')
             break
         else:
             if debug:
