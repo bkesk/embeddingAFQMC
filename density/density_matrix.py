@@ -128,9 +128,12 @@ def dm_from_chk(chk, scf_type='rohf', verb=False):
     if scf_type =='rohf':
         mf = scf.ROHF(mol)
         dm = mf.make_rdm1(mo_coeff=C, mo_occ=occ)
+    elif scf_type == 'uks':
+        mf = scf.UKS(mol)
+        dm = mf.make_rdm1(mo_coeff=C, mo_occ=occ)
     return dm
 
-def fragment_dm(chkA, chkB, verb=True):
+def fragment_dm(chkA, chkB,scf_type='rohf',verb=True):
     '''
     builds a density matrix for the combined A+B system, based on the dm for A, and B respectively as:
                |----|----|
@@ -141,8 +144,9 @@ def fragment_dm(chkA, chkB, verb=True):
     clearly, in the combined basis, the order of A amd B must be respected, or the rows/columns swapped accordingly.
 
     '''
-    dmA = dm_from_chk(chkA)
-    dmB = dm_from_chk(chkB)
+
+    dmA = dm_from_chk(chkA,scf_type=scf_type)
+    dmB = dm_from_chk(chkB,scf_type=scf_type)
     
     if verb:
         print(f'fragment_dm : trace of dmA alpha = {np.trace(dmA[0])}')
