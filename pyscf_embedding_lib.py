@@ -1098,9 +1098,7 @@ def make_embedding_H_afqmclab(nfc,nactive,Enuc,tol=1.0e-6,C=None,twoBody=None,on
         NcvActive, twoBodyActive = cholesky(integral_generator=V,tol=tol)
         del(V)
 
-    # 5. load K,S from one_body_gms
-    #       - transform to MO basis (active space)
-    #       - compute embedding potential, add to K_active
+    # 5. Transform K,S
     print('Computing one-body embedding terms', flush=True)
     
     S_MO = ch.ao2mo_mat(C,S)
