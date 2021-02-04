@@ -2156,6 +2156,58 @@ def get_embedding_potential_CV(nfc, C, Alist, AdagList, debug=False,is_complex=T
     
     return 2*Vd - Vx
 
+
+def get_embedding_constant_CV_GHF(C, Alist, AdagList, debug=False, is_complex=True):
+    '''
+    Computes the embedding constant from MO basis Cholesky vectors
+    
+    NOTES:- make cuts before calling in C, Alist, AdagList
+          - no need for C, its assumed that Alist / AdagList as in correct basis
+    
+    Inputs:
+    C - array containing just the inactive orbitals
+    Alist, AdagList - restricted to frozen orbitals
+    '''
+    if is_complex:
+        Vd = np.einsum('gii,gjj->',Alist,AdagList,optimize='greedy')
+        Vx = np.einsum('gij,gji->',Alist,AdagList,optimize='greedy')
+    else:
+        Vd = np.einsum('gii,gjj->',Alist,Alist,optimize='greedy')
+        Vx = np.einsum('gij,gji->',Alist,Alist,optimize='greedy')
+    
+    #return 2*Vd - Vx 
+    return Vd - Vx 
+
+def get_embedding_potential_CV_GHF(nfc, C, Alist, AdagList, debug=False,is_complex=True):
+    '''
+    Computes the embedding potential from MO basis Cholesky vectors
+    
+    NOTES: make cuts before calling in C, Alist, AdagList
+    '''
+    G_core = np.eye(nfc)
+    
+    if is_complex:
+        # compute the direct term as G_{I L} * V_{I j k L} -> Pyscf (Chemists') notation, want (IL|jk) mo integrals
+        print('[+] computing Vd ...')
+        Vd = np.einsum('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],AdagList[:, nfc:, nfc:],optimize='greedy')
+
+        # compute the exchange term as G_{I L} * V_{i J k L} -> Pyscf (Chemists') notation, want (iL|Jk) mo integrals
+        print('[+] computing Vx ...')
+        Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],AdagList[:,:nfc,nfc:],optimize='greedy')
+    else:
+        # compute the direct term as G_{I L} * V_{I j k L} -> Pyscf (Chemists') notation, want (IL|jk) mo integrals
+        print('[+] computing Vd ...')
+        Vd = np.einsum('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],Alist[:, nfc:, nfc:],optimize='greedy')
+
+        # compute the exchange term as G_{I L} * V_{i J k L} -> Pyscf (Chemists') notation, want (iL|Jk) mo integrals
+        print('[+] computing Vx ...')
+        Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],Alist[:,:nfc,nfc:],optimize='greedy')
+    
+    #return 2*Vd - Vx
+    return Vd - Vx
+
+
+
 def get_one_body_embedding(mol, C, nfc, debug=False):
     '''
     Computes and returns the contributions to the embedding / downfolding Hamiltonian due to the one-body terms in the full Hilbert space
