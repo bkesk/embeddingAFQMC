@@ -313,6 +313,9 @@ def cholesky(integral_generator=None,tol=1.0E-8,prescreen=True,debug=False,max_c
     
     # Note: screening should work still as long as we keep shape of Vdiag consistent!
     if prescreen: # zero small diagonal matrix elements - see J. Chem. Phys. 118, 9481 (2003)
+        if debug:
+            imax = np.argmax(Vdiag)
+            print("imax , unflatten(imax) = ", imax, unflatten(imax))
         imax = np.argmax(Vdiag); vmax = Vdiag[unflatten(imax)]
         toScreen = np.less(Vdiag, tol*tol/vmax)
         Vdiag[toScreen] = 0.0
