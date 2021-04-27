@@ -926,6 +926,118 @@ def getCholeskyAO(mol=None, tol=1e-8, prescreen=True, debug=False):
 
     return choleskyNum, choleskyVecAO
 
+
+def getCholesky_fullV(eri, nbasis, tol=1e-6, prescreen=True, debug=False):
+
+    V   = ao2mo.restore(1, eri, nbasis)
+    V   = V.reshape( nbasis*nbasis, nbasis*nbasis )
+    
+    if debug:
+        Vorig = V.copy()
+
+    choleskyVecAO = []; choleskyNum = 0
+    Vdiag = V.diagonal().copy()
+    if debug:
+        print("Initial Vdiag: ", Vdiag)
+
+    if prescreen: # zero small diagonal matrix elements - see J. Chem. Phys. 118, 9481 (2003)
+        imax = np.argmax(Vdiag); vmax = Vdiag[imax]
+        toScreen = np.less(Vdiag, tol*tol/vmax)
+        Vdiag[toScreen] = 0.0
+
+    while True:
+        imax = np.argmax(Vdiag); vmax = Vdiag[imax]
+        print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax) )
+        if(vmax<tol or choleskyNum==nbasis*nbasis):
+            print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
+            print('\n')
+            break
+        else:
+            oneVec = V[imax]/np.sqrt(vmax)
+            if debug:
+                print("\n***debugging info*** \n")
+                print("imax: ", imax, " (i,l) ", (imax // nbasis, imax % nbasis))
+                print("vmax: ", vmax)
+                print("V[imax]", V[imax])
+                print("full V[imax]", Vorig[imax])
+            choleskyVecAO.append( oneVec.reshape(nbasis,nbasis) )
+            choleskyNum+=1
+            V -= np.dot(oneVec[:, None], oneVec[None,:])
+            Vdiag -= oneVec**2
+            if prescreen:
+                Vdiag, dump = dampedPrescreenCond(Vdiag, vmax, tol)
+            if debug:
+                print("oneVec: ", oneVec)
+                print("oneVec**2: ", oneVec**2)
+                print("Vdiag: ", Vdiag)
+
+    return choleskyNum, choleskyVecAO
+
+def getCholeskyAO_PBC(mf, mol=None, tol=1e-8, prescreen=True, debug=False):
+    '''
+
+    Some Dev notes:
+     - This may not be suitable for All-electron calculations since FFTDF will need
+    a large PW cutoff
+     - I think we need to take the real component of 'eri' which is probably a complex-valued matri
+        in general
+
+    '''
+    from pyscf.pbc import df
+
+    nbasis  = mol.nao_nr()
+    # be more careful, this will use a very large amount of memory!
+    #eri = mf.with_df.ao2mo(mf.mo_coeff)
+
+    mydf = df.FFTDF(mol) # mol should be a periodic 'mol'
+    eri = mydf.get_eri()
+    print('ERI shape (%d,%d)' % eri.shape)
+
+    V   = ao2mo.restore(1, eri, nbasis)
+    V   = V.reshape( nbasis*nbasis, nbasis*nbasis )
+
+    if debug:
+        Vorig = V.copy()
+
+    choleskyVecAO = []; choleskyNum = 0
+    Vdiag = V.diagonal().copy()
+    if debug:
+        print("Initial Vdiag: ", Vdiag)
+
+    if prescreen: # zero small diagonal matrix elements - see J. Chem. Phys. 118, 9481 (2003)
+        imax = np.argmax(Vdiag); vmax = Vdiag[imax]
+        toScreen = np.less(Vdiag, tol*tol/vmax)
+        Vdiag[toScreen] = 0.0
+
+    while True:
+        imax = np.argmax(Vdiag); vmax = Vdiag[imax]
+        print( "Inside modified Cholesky {:<9} {:26.18e}.".format(choleskyNum, vmax) )
+        if(vmax<tol or choleskyNum==nbasis*nbasis):
+            print( "Number of Cholesky fields is {:9}".format(choleskyNum) )
+            print('\n')
+            break
+        else:
+            oneVec = V[imax]/np.sqrt(vmax)
+            if debug:
+                print("\n***debugging info*** \n")
+                print("imax: ", imax, " (i,l) ", (imax // nbasis, imax % nbasis))
+                print("vmax: ", vmax)
+                print("V[imax]", V[imax])
+                print("full V[imax]", Vorig[imax])
+            choleskyVecAO.append( np.array(oneVec).reshape(nbasis,nbasis) )
+            choleskyNum+=1
+            V -= np.dot(oneVec[:, None], oneVec[None,:])
+            Vdiag -= oneVec**2
+            if prescreen:
+                Vdiag, dump = dampedPrescreenCond(Vdiag, vmax, tol)
+            if debug:
+                print("oneVec: ", oneVec)
+                print("oneVec**2: ", oneVec**2)
+                print("Vdiag: ", Vdiag)
+
+    return choleskyNum, np.array(choleskyVecAO)
+
+
 def getCholeskyExternal(nbasis, Alist, tol=1e-8):
     # perform a Cholesky decomposition on a factorized representation of V
     # (i.e. V = sum_g A^g * (A^g)^dagger)
@@ -2135,9 +2247,11 @@ def get_embedding_potential_CV(nfc, C, Alist, AdagList, debug=False,is_complex=T
     
     NOTES: make cuts before calling in C, Alist, AdagList
     '''
-    G_core = np.eye(nfc)
+    
+    
     
     if is_complex:
+        G_core = np.eye(nfc,dtype='complex128')
         # compute the direct term as G_{I L} * V_{I j k L} -> Pyscf (Chemists') notation, want (IL|jk) mo integrals
         print('[+] computing Vd ...')
         Vd = np.einsum('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],AdagList[:, nfc:, nfc:],optimize='greedy')
@@ -2146,6 +2260,7 @@ def get_embedding_potential_CV(nfc, C, Alist, AdagList, debug=False,is_complex=T
         print('[+] computing Vx ...')
         Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],AdagList[:,:nfc,nfc:],optimize='greedy')
     else:
+        G_core = np.eye(nfc)
         # compute the direct term as G_{I L} * V_{I j k L} -> Pyscf (Chemists') notation, want (IL|jk) mo integrals
         print('[+] computing Vd ...')
         Vd = np.einsum('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],Alist[:, nfc:, nfc:],optimize='greedy')
@@ -2168,6 +2283,8 @@ def get_embedding_constant_CV_GHF(C, Alist, AdagList, debug=False, is_complex=Tr
     C - array containing just the inactive orbitals
     Alist, AdagList - restricted to frozen orbitals
     '''
+    print(Alist.shape, " vs ", AdagList.shape)
+
     if is_complex:
         Vd = np.einsum('gii,gjj->',Alist,AdagList,optimize='greedy')
         Vx = np.einsum('gij,gji->',Alist,AdagList,optimize='greedy')
@@ -2185,7 +2302,9 @@ def get_embedding_potential_CV_GHF(nfc, C, Alist, AdagList, debug=False,is_compl
     NOTES: make cuts before calling in C, Alist, AdagList
     '''
     G_core = np.eye(nfc)
-    
+
+    print("WARNING: Need to update cholesky.get_embedding_potential_CV_GHF !!!! current implementation is not correct for all inputs")
+
     if is_complex:
         # compute the direct term as G_{I L} * V_{I j k L} -> Pyscf (Chemists') notation, want (IL|jk) mo integrals
         print('[+] computing Vd ...')
@@ -2207,6 +2326,86 @@ def get_embedding_potential_CV_GHF(nfc, C, Alist, AdagList, debug=False,is_compl
     return Vd - Vx
 
 
+
+def get_embedding_constant_CV_GHF_v2(Alist, AdagList=None, debug=False, is_complex=None):
+    '''
+    Computes the embedding constant from MO basis Cholesky vectors
+    
+    NOTES:- make cuts before calling in C, Alist, AdagList
+          - no need for C, its assumed that Alist / AdagList as in correct basis
+    
+    Inputs:
+    C - array containing just the inactive orbitals
+    Alist, AdagList - restricted to frozen orbitals
+    '''
+
+    L = Alist.shape[-1]
+    M = L // 2
+    
+    if is_complex:
+        Vd = np.einsum('gii,gjj->',Alist,AdagList,optimize='greedy')
+        Vx = np.einsum('gij,gji->',Alist,AdagList,optimize='greedy')
+    else:
+        Vd = np.einsum('gii,gjj->',Alist,Alist,optimize='greedy')
+        Vx = np.einsum('gij,gji->',Alist,Alist,optimize='greedy')
+    
+    return 2*Vd - Vx #correct for ROHF input
+    #return Vd - Vx # correct for GHF input
+
+def get_embedding_potential_CV_GHF_v2(nfc, Alist, AdagList=None, debug=False,is_complex=False):
+    '''
+    Computes the embedding potential from MO basis Cholesky vectors
+    
+    NOTES: make virtual cuts before calling in C, Alist, AdagList
+
+    currently assumes a spin-free type orbital basis (i.e X_i = phi_u * s_sigma)
+
+    strategy is to compute Vd, Vx for up-up, then for down-down (so that UHF orbitals could be used
+    if desired.) FOR NOW, ASSUME ROHF.
+    
+    '''
+    
+    G_core = np.eye(nfc)
+    
+    # these are the 'uncut' dimensions
+    L = Alist.shape[-1]
+    M = L // 2 
+
+    Lcut = L - 2*nfc
+    Mcut = M - nfc
+
+    if is_complex:
+        Vd_full = np.zeros((Lcut,Lcut),dtype='complex128')
+        Vx_full = np.zeros((Lcut,Lcut),dtype='complex128')
+
+        # compute the direct term as G_{I L} * V_{I j k L} -> Pyscf (Chemists') notation, want (IL|jk) mo integrals
+        print('[+] computing Vd ...')
+        Vd = np.einsum('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],AdagList[:, nfc:M, nfc:M],optimize='greedy')
+        
+        # compute the exchange term as G_{I L} * V_{i J k L} -> Pyscf (Chemists') notation, want (iL|Jk) mo integrals
+        print('[+] computing Vx ...')
+        Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,nfc:M,:nfc],AdagList[:,:nfc,nfc:M],optimize='greedy')
+    else:
+        Vd_full = np.zeros((Lcut,Lcut))
+        Vx_full = np.zeros((Lcut,Lcut))
+
+        # compute the direct term as G_{I L} * V_{I j k L} -> Pyscf (Chemists') notation, want (IL|jk) mo integrals
+        print('[+] computing Vd ...')
+        Vd = np.einsum('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],Alist[:, nfc:M, nfc:M],optimize='greedy')
+
+        # compute the exchange term as G_{I L} * V_{i J k L} -> Pyscf (Chemists') notation, want (iL|Jk) mo integrals
+        print('[+] computing Vx ...')
+        Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,nfc:M,:nfc],Alist[:,:nfc,nfc:M],optimize='greedy')
+    
+    print(f" Mcut = {Mcut}, Vd shape = {Vd.shape}, Vd_full[:Mcut,:Mcut] shape = {Vd_full[:M,:M].shape} Vd_full shape = {Vd_full.shape}")
+    Vd_full[:Mcut,:Mcut] = Vd
+    Vd_full[Mcut:,Mcut:] = Vd
+
+    Vx_full[:Mcut,:Mcut] = Vx
+    Vx_full[Mcut:,Mcut:] = Vx
+
+    #return 2*Vd - Vx
+    return 2*Vd_full - Vx_full
 
 def get_one_body_embedding(mol, C, nfc, debug=False):
     '''
