@@ -1266,13 +1266,15 @@ def make_embedding_H_afqmclab_GHF(nfc,nactive,Enuc,tol=1.0e-6,C=None,twoBody=Non
     print('Computing constant energy', flush=True)
     if nfc > 0:
         E_K = np.einsum('ii->',oneBody_MO[:nfc,:nfc])
-        E_V = 0.5*ch.get_embedding_constant_CV_GHF(C,Alist[:,:nfc,:nfc],AdagList=None,is_complex=False)
+        E_V = 0.5*ch.get_embedding_constant_CV_GHF(C,Alist[:,:nfc,:nfc],AdagList=AdagList[:,:nfc,:nfc],is_complex=False)
+        #E_V = ch.get_embedding_constant_CV_GHF(C,Alist[:,:nfc,:nfc],AdagList=AdagList[:,:nfc,:nfc],is_complex=False)
     else:
         E_K=0.0
         E_V=0.0
     E_const = Enuc + E_K + E_V
     print(f'E_0 = Enuc + E_K + E_V = {E_const} with:\n  - Enuc = {Enuc}\n  - E_K = {E_K}\n  - E_V = {E_V}')
 
+                                                                                
     return twoBodyActive,NcvActive,oneBody_active,S_active,E_const
 
     
