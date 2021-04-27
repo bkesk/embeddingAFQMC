@@ -1225,6 +1225,12 @@ def make_embedding_H_afqmclab_GHF(nfc,nactive,Enuc,tol=1.0e-6,C=None,twoBody=Non
     
     # 2. read CVs from file, and transform to MO basis
     Alist = ch.ao2mo_cholesky(C,twoBody)
+    
+    # Need the complex conjugate as well!! orbitals are complex-valued!
+    AdagList = np.zeros(Alist.shape,dtype='complex128')
+    for g in range(AdagList.shape[0]):
+        AdagList[g] = Alist[g].conj().T
+
     Ncv = twoBody.shape[0]
 
     # in some cases, we only want to transform CVs to the MO basis
@@ -1232,9 +1238,10 @@ def make_embedding_H_afqmclab_GHF(nfc,nactive,Enuc,tol=1.0e-6,C=None,twoBody=Non
         print('Only transforming from GTO to orthonormal basis with no additional Cholesky decomposition', flush=True)
         NcvActive = Ncv
         twoBodyActive = Alist[:,nfc:,nfc:]
+        twoBodyDagActive = AdagList[:,nfc:,nfc:]
     else:
         print(f'Performing Cholesky decomposition within the active space num. frozen occupied={nfc}, num. of active orbitals = {nactive}', flush=True)
-        V = FactoredIntegralGenerator(Alist[:,nfc:,nfc:])
+        V = FactoredIntegralGenerator(Alist[:,nfc:,nfc:]) # needs update for the case of complex orbitals
         NcvActive, twoBodyActive = cholesky(integral_generator=V,tol=tol)
         del(V)
 
@@ -1251,7 +1258,7 @@ def make_embedding_H_afqmclab_GHF(nfc,nactive,Enuc,tol=1.0e-6,C=None,twoBody=Non
 
     print(f'shape of oneBody_active is {oneBody_active.shape}')
     if nfc > 0:
-        oneBody_active+=ch.get_embedding_potential_CV_GHF(nfc, C, Alist, AdagList=None,is_complex=False)
+        oneBody_active+=ch.get_embedding_potential_CV_GHF(nfc, C, Alist, AdagList=AdagList,is_complex=False)
     
     # 7. compute constant Energy
     #       - E_K = trace K over core orbitals
