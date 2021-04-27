@@ -1129,7 +1129,79 @@ def make_embedding_H_afqmclab(nfc,nactive,Enuc,tol=1.0e-6,C=None,twoBody=None,on
     return twoBodyActive,NcvActive,oneBody_active,S_active,E_const
 
 
-def make_embedding_H_afqmclab_GHF(nfc,nactive,Enuc,tol=1.0e-6,C=None,twoBody=None,oneBody=None,S=None,transform_only=False,debug=False,is_complex=False):
+def make_embedding_H_afqmclab_solids(nfc,nactive,Enuc,C=None,tol=1.0e-6,twoBody=None,oneBody=None,S=None,transform_only=True,debug=False,is_complex=False):
+    '''
+    high level function to produce the embedding / downfolding Hamiltonian
+    saves the results to files
+
+    Inputs: ALL in MO basis!
+    
+    Outputs:
+    > saves the following files
+    '''
+
+    print("WARNING : make_embedding_H_afqmclab_solids is in Alpha, check output carefully!")
+
+    # 1. read in orbitals (go ahead and remove the last ntrim orbitals)
+    if C is None:
+        print("Currently \"make_embedding_H_afqmclab\" requires C as input")
+        return None
+    C = C[:,:nfc+nactive]
+    #MActive = C.shape[1] - nfc
+    
+    # 2. read CVs from file, and transform to MO basis
+    # HACK reading in twoBody in mo basis!
+    Alist = twoBody[:,:nfc+nactive, :nfc+nactive] #ch.ao2mo_cholesky(C,twoBody)
+    AdagList = np.zeros(Alist.shape,dtype='complex128')
+    print("AdagList.shape = ", AdagList.shape)
+    Ncv = twoBody.shape[0]
+
+    for g in range(Ncv):
+        L = Alist[g,:,:]
+        AdagList[g,:,:] = L.conj().T
+
+    # in some cases, we only want to transform CVs to the MO basis
+    if transform_only:
+        print('Only transforming from GTO to orthonormal basis with no additional Cholesky decomposition', flush=True)
+        NcvActive = Ncv
+        twoBodyActive = Alist[:,nfc:,nfc:]
+    else:
+        print(f'Performing Cholesky decomposition within the active space num. frozen occupied={nfc}, num. of active orbitals = {nactive}', flush=True)
+        V = FactoredIntegralGenerator(Alist[:,nfc:,nfc:])
+        NcvActive, twoBodyActive = cholesky(integral_generator=V,tol=tol)
+        del(V)
+
+    # 5. load K,S from one_body_gms
+    #       - transform to MO basis (active space)
+    #       - compute embedding potential, add to K_active
+    print('Computing one-body embedding terms', flush=True)
+    
+    S_MO = ch.ao2mo_mat(C,S)
+    oneBody_MO = ch.ao2mo_mat(C,oneBody)
+
+    S_active = S_MO[nfc:,nfc:]
+    oneBody_active = oneBody_MO[nfc:,nfc:]
+
+    print(f'shape of oneBody_active is {oneBody_active.shape}')
+    if nfc > 0:
+        oneBody_active+=ch.get_embedding_potential_CV(nfc, C, Alist, AdagList=AdagList,is_complex=True)
+    
+    # 7. compute constant Energy
+    #       - E_K = trace K over core orbitals
+    #       - E_V = embedding constant from V2b
+    print('Computing constant energy', flush=True)
+    if nfc > 0:
+        E_K = 2*np.einsum('ii->',oneBody_MO[:nfc,:nfc])
+        E_V = ch.get_embedding_constant_CV(C,Alist[:,:nfc,:nfc],AdagList=AdagList[:,:nfc,:nfc],is_complex=True)
+    else:
+        E_K=0.0
+        E_V=0.0
+    E_const = Enuc + E_K + E_V
+    print(f'E_0 = Enuc + E_K + E_V = {E_const} with:\n  - Enuc = {Enuc}\n  - E_K = {E_K}\n  - E_V = {E_V}')
+
+    return twoBodyActive,NcvActive,oneBody_active,S_active,E_const
+
+def make_embedding_H_afqmclab_GHF(nfc,nactive,Enuc,tol=1.0e-6,C=None,twoBody=None,oneBody=None,S=None,transform_only=False,debug=False,is_complex=True):
     '''
     high level function to produce the embedding / downfolding Hamiltonian
     saves the results to files
