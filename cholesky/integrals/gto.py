@@ -6,21 +6,28 @@ from pyscf.gto import getints_by_shell
 from .base import IntegralGenerator
 
 class GTOIntegralGenerator(IntegralGenerator):
-    def __init__(self,mol,*args,**kwargs):
+    def __init__(self,mol,cart=False,*args,**kwargs):
         if not isinstance(mol,gto.Mole):
             raise TypeError('mol must be a Pyscf molecule object')
-
+        
         super().__init__(*args,**kwargs)
         self.mol = mol
         self.nbasis = mol.nao_nr()
-    
+        self.cart = cart
+
     def get_row(self, index,*args,**kwargs):
-        return V2b_row(self.mol, index, Alist=kwargs['Alist'])
-
+        if self.cart:
+            return V2b_row(self.mol, index, Alist=kwargs['Alist'], intor_name='int2e_cart')
+        else:
+            return V2b_row(self.mol, index, Alist=kwargs['Alist'])
+        
     def get_diagonal(self,*args,**kwargs):
-        return V2b_diagonal(self.mol)
+        if self.cart:
+            return V2b_diagonal(self.mol,intor_name='int2e_cart')
+        else:
+            return V2b_diagonal(self.mol)
 
-def GTO_ints_shellInd(mol, shell_range, verb=False):
+def GTO_ints_shellInd(mol, shell_range, intor_name='int2e_sph', verb=False):
     '''
     Inputs:
     mol - Pyscf molecule object describing the system
@@ -32,7 +39,7 @@ def GTO_ints_shellInd(mol, shell_range, verb=False):
     if verb:
         print(f'[DEBUG] : shell_range = {shell_range}' )
 
-    result = gto.moleintor.getints('int2e_sph',  mol._atm, mol._bas, mol._env, aosym='s1', shls_slice=shell_range)
+    result = gto.moleintor.getints(intor_name, mol._atm, mol._bas, mol._env, aosym='s1', shls_slice=shell_range)
 
     return result
     
@@ -153,7 +160,7 @@ def V2b_row(mol, mu, Alist=None, intor_name='int2e_sph', verb=None):
     I, i = index_Map[i_global]
     L, l = index_Map[l_global]
 
-    Vrow = GTO_ints_shellInd(mol, shell_range=[I,I+1,L,L+1,0,num_shells,0,num_shells], verb=(verb>5))[i,l,:,:]
+    Vrow = GTO_ints_shellInd(mol, shell_range=[I,I+1,L,L+1,0,num_shells,0,num_shells], intor_name=intor_name, verb=(verb>5))[i,l,:,:]
  
     if Alist is not None and len(Alist) > 0:
              
