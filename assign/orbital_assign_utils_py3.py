@@ -38,6 +38,8 @@ def write_sorted_sizeDist(fname,orbList):
     Save the sorted sizeDist file
     '''
 
+    # TODO: add sorting (or rename without 'sorted'), otherwise, the name is misleading
+
     print(("[+] : writing sorted sizeDist file to {}".format(fname)))
     
     # Q: do I need to re-number these? - I think so, we will want the 'new' index
