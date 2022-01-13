@@ -63,8 +63,8 @@ def order_orbitals(orbitals, metric=None, origin=(0.0,0.0,0.0), outname='sigma_v
 
     sigma2 = []
     for orb in orbitals:
-        centroid = orb[-1]
-        sigma2.append([orb[0], orb[1], metric(origin, centroid)])
+        i, _, sigma2_val, centroid = orb
+        sigma2.append([i, sigma2_val, metric(origin, centroid)])
 
     # sort
     sigma2.sort(key=lambda orbital : orbital[2])
@@ -79,19 +79,38 @@ def order_orbitals(orbitals, metric=None, origin=(0.0,0.0,0.0), outname='sigma_v
     return [ old_ind for old_ind,_,_ in sigma2 ]
 
 
-def show_cumulative(fname):
+def show_cumulative(fname, bins=100, write_to_file=False, outname='N_vs_R.png',label=None,ax=None):
 
     import matplotlib.pyplot as plt
 
-    _,sigma2,r  = np.loadtext(fname,unpack=True)
+    _,_,r  = np.loadtxt(fname,unpack=True)
 
-    _hist, binLabels = np.histogram(metVals, bins=bins, range=(-0.001,np.amax(metVals)), density=False)
+    _hist, binLabels = np.histogram(r, bins=bins, range=(-0.001,np.amax(r)), density=False)
     count = np.cumsum(_hist)
 
-    plt.plot(binLabels[1:], count)
-    plt.title("Orbital count vs R")
-    plt.show()
+    if ax is None:
+        _, ax_new = plt.subplots(1,1,figsize=(6,4))
+        axs = ax_new
+    else:
+        axs = ax
 
+    axs.plot(binLabels[1:], count, label=label)
+    axs.set_title("Orbital count vs R")
+
+    axs.set_xlabel('Localization Radius')
+    axs.set_ylabel('Number of Active Orbitals')
+
+    axs.legend()
+
+    if write_to_file:
+        plt.savefig(outname)
+    else:
+        plt.show()
+
+    if ax is not None:
+        return binLabels, count, ax # we only want to return if we modified an input axis object!
+    else:
+        return binLabels, count
 
 
 
