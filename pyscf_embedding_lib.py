@@ -1,10 +1,6 @@
 import numpy as np
-import logging
 
-import embedding.light.cholesky as ch
-
-from .cholesky import cholesky
-
+import embedding.cholesky as ch
 
 def ao2mo_mat(C, mat):
     '''
@@ -23,22 +19,39 @@ def ao2mo_mat(C, mat):
     matMO = np.matmul(matMO,C)
     return matMO
 
-
-def make_embedding_H(nfc,nactive,Enuc,tol=1.0e-6,C=None,twoBody=None,oneBody=None,S=None,transform_only=False,debug=False,is_complex=False):
+def make_embedding_H(nfc,nactive,Enuc=0.0,tol=1.0e-6,C=None,twoBody=None,oneBody=None,S=None,transform_only=False):
     '''
     high level function to produce the embedding / downfolding Hamiltonian
    
-    Inputs:
-    
-    Outputs:
-     saves the following files
-    '''
+    Required Inputs:
+      - nfc (integer) : number of orbitals to freeze
+      - nactive (integer): number of orbitals to treat as active in the embedding Hamiltonian
+      - Enuc (float) : the nuclear repulsion energy (in E_{Hartree}) plus any other constant energy terms
+      - C (numpy.Array, float of complex) 
+      - oneBody (numpy.Array, float of complex) 
+      - twoBody (numpy.Array, float of complex) 
+      - S (numpy.Array) 
 
-    #TODO check dtype to get 'is_complex'
-    
+    Optional Inputs:
+      - transform_only (Boolean) : if False, a secondary Cholesky decomposition will be performed on the active space 
+                                    two-body integrals. This is meant to reduce the overhead of 
+      - tol (float) : tolerance for performing Cholesky decomposition on the active space two-body intergrals. 
+                           IMPORTANT: tol should be greater than the tolerance of the original integrals. i.e. for
+                           Cholesky vector inputs, tol should be greater than the original cholesky threshold.
+ 
+    Returns:
+        - twoBodyActive (numpy.Array shape (NcvActive,nactive,nactive) )
+        - NcvActive (int)
+        - oneBody_active (numpy.Array shape (nactive,nactive) )
+        - S_active (numpy.Array shape (nactive,nactive) )
+        - E_const (float) : contstant energy term (Enuc + frozen orbital contribution)
+    '''
     if C is None:
         print("Currently \"make_embedding_Hb\" requires C as input")
         return None
+    
+    is_complex = np.iscomplexobj(C)
+
     C = C[:,:nfc+nactive]
     
     Alist = ch.ao2mo_cholesky(C,twoBody)
@@ -53,7 +66,7 @@ def make_embedding_H(nfc,nactive,Enuc,tol=1.0e-6,C=None,twoBody=None,oneBody=Non
 
         print(f'Performing Cholesky decomposition within the active space num. frozen occupied={nfc}, num. of active orbitals = {nactive}', flush=True)
         V = FactoredIntegralGenerator(Alist[:,nfc:,nfc:])
-        NcvActive, twoBodyActive = cholesky(integral_generator=V,tol=tol)
+        NcvActive, twoBodyActive = ch.cholesky(integral_generator=V,tol=tol)
         del(V)
 
     print('Computing one-body embedding terms', flush=True)
@@ -66,12 +79,12 @@ def make_embedding_H(nfc,nactive,Enuc,tol=1.0e-6,C=None,twoBody=None,oneBody=Non
 
     print(f'shape of oneBody_active is {oneBody_active.shape}')
     if nfc > 0:
-        oneBody_active+=ch.get_embedding_potential(nfc, C, Alist, AdagList=None,is_complex=False)
+        oneBody_active+=ch.get_embedding_potential(nfc, C, Alist, AdagList=None,is_complex=is_complex)
     
     print('Computing constant energy', flush=True)
     if nfc > 0:
         E_K = 2*np.einsum('ii->',oneBody_MO[:nfc,:nfc])
-        E_V = ch.get_embedding_constant(C,Alist[:,:nfc,:nfc],AdagList=None,is_complex=False)
+        E_V = ch.get_embedding_constant(C,Alist[:,:nfc,:nfc],AdagList=None,is_complex=is_complex)
     else:
         E_K=0.0
         E_V=0.0
