@@ -47,8 +47,7 @@ def make_embedding_H(nfc,nactive,Enuc=0.0,tol=1.0e-6,C=None,twoBody=None,oneBody
         - E_const (float) : contstant energy term (Enuc + frozen orbital contribution)
     '''
     if C is None:
-        print("Currently \"make_embedding_Hb\" requires C as input")
-        return None
+        raise ValueError("\"make_embedding_Hb\" requires C as input")
     
     is_complex = np.iscomplexobj(C)
 
