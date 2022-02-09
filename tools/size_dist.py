@@ -56,10 +56,10 @@ def euclid3d(r1,r2):
     dist_sqr = sum([ (x1 - x2)**2 for x1,x2 in zip(r1,r2)])
     return np.sqrt(dist_sqr)
 
-def order_orbitals(orbitals, metric=None, origin=(0.0,0.0,0.0), outname='sigma_vs_centroidDist', close_first=False):
+def order_orbitals(orbitals, metric=None, origin=(0.0,0.0,0.0), outname='sigma_vs_centroidDist', far_first=False):
     '''
     Inputs:
-    - close_first (Boolean) : Default is False : if True, the orbitals are sorted with the closest orbital
+    - far_first (Boolean) : Default is False : if True, the orbitals are sorted with the farthest orbital
     first in the list.
     '''
 
@@ -73,7 +73,7 @@ def order_orbitals(orbitals, metric=None, origin=(0.0,0.0,0.0), outname='sigma_v
 
     # sort
     sigma2.sort(key=lambda orbital : orbital[2],
-                reverse=close_first)
+                reverse=far_first)
 
     # write
     f2 = open(outname+'.sigma2.dat','w')
