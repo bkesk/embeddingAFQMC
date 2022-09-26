@@ -71,7 +71,10 @@ def GTO_ints_shellInd(mol, shell_range, verb=False):
         '''
         Inputs:
         mol - Pyscf molecule object describing the system
-        index_range - an 8-ten list-like object, containing the index range of desired integrals in the following format (mu_start, mu_stop, nu_start, nu_stop, gamma_start, gamma_stop, delta_start, delta_stop) for V_{mu nu gamma delta}
+        index_range - an 8-ten list-like object, containing 
+                        the index range of desired integrals in the following format
+                          (mu_start, mu_stop, nu_start, nu_stop, gamma_start, gamma_stop, delta_start, delta_stop)
+                             for V_{mu nu gamma delta}
         
         returns:
         result - np array containing the requested integrals
@@ -157,6 +160,7 @@ def V2b_diagonal(mol, intor_name='int2e_sph', verb=None):
             pairIndS += 1
         
     return Vdiag
+
 
 def V2b_row(mol, mu, Alist=None, intor_name='int2e_sph', verb=None):
     '''

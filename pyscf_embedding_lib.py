@@ -1061,7 +1061,7 @@ def make_embedding_H(nfc,ntrim,Enuc,tol=1.0e-6,ename='eigen_gms',V2b_source='V2b
 
     return E_const
 
-def make_embedding_H_afqmclab(nfc,nactive,Enuc,tol=1.0e-6,C=None,twoBody=None,oneBody=None,S=None,transform_only=False,debug=False,is_complex=False):
+def make_embedding_H_afqmclab(nfc=0,nactive=None,Enuc=0.0,tol=1.0e-6,C=None,twoBody=None,oneBody=None,S=None,transform_only=False):
     '''
     high level function to produce the embedding / downfolding Hamiltonian
     saves the results to files
@@ -1073,6 +1073,9 @@ def make_embedding_H_afqmclab(nfc,nactive,Enuc,tol=1.0e-6,C=None,twoBody=None,on
     
     Outputs:
     > saves the following files
+
+    #TODO: add option to use a list of active orbital indices - internally, we should always do this. The problem then reduces to generating this list of indices.
+
     '''
 
     
@@ -1080,6 +1083,10 @@ def make_embedding_H_afqmclab(nfc,nactive,Enuc,tol=1.0e-6,C=None,twoBody=None,on
     if C is None:
         print("Currently \"make_embedding_H_afqmclab\" requires C as input")
         return None
+
+    if nactive is None:
+        nactive = S.shape[0] - nfc
+    
     C = C[:,:nfc+nactive]
     #MActive = C.shape[1] - nfc
     
