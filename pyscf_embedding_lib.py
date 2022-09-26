@@ -19,7 +19,7 @@ def ao2mo_mat(C, mat):
     matMO = np.matmul(matMO,C)
     return matMO
 
-def make_embedding_H(nfc,nactive,Enuc=0.0,tol=1.0e-6,C=None,twoBody=None,oneBody=None,S=None,transform_only=False):
+def make_embedding_H(nfc=0,nactive=None,Enuc=0.0,tol=1.0e-6,C=None,twoBody=None,oneBody=None,S=None,transform_only=False):
     '''
     high level function to produce the embedding / downfolding Hamiltonian
    
@@ -49,6 +49,9 @@ def make_embedding_H(nfc,nactive,Enuc=0.0,tol=1.0e-6,C=None,twoBody=None,oneBody
     if C is None:
         raise ValueError("\"make_embedding_Hb\" requires C as input")
     
+    if nactive is None:
+        nactive = S.shape[0] - nfc
+
     is_complex = np.iscomplexobj(C)
 
     C = C[:,:nfc+nactive]
