@@ -1,0 +1,6 @@
+*pycache*
+*.pyc
+*~
+/example/*
+.coverage
+

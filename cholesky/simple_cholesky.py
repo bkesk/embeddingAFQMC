@@ -71,7 +71,10 @@ def GTO_ints_shellInd(mol, shell_range, verb=False):
         '''
         Inputs:
         mol - Pyscf molecule object describing the system
-        index_range - an 8-ten list-like object, containing the index range of desired integrals in the following format (mu_start, mu_stop, nu_start, nu_stop, gamma_start, gamma_stop, delta_start, delta_stop) for V_{mu nu gamma delta}
+        index_range - an 8-ten list-like object, containing 
+                        the index range of desired integrals in the following format
+                          (mu_start, mu_stop, nu_start, nu_stop, gamma_start, gamma_stop, delta_start, delta_stop)
+                             for V_{mu nu gamma delta}
         
         returns:
         result - np array containing the requested integrals
@@ -157,6 +160,7 @@ def V2b_diagonal(mol, intor_name='int2e_sph', verb=None):
             pairIndS += 1
         
     return Vdiag
+
 
 def V2b_row(mol, mu, Alist=None, intor_name='int2e_sph', verb=None):
     '''
@@ -286,7 +290,7 @@ def dampedPrescreenCond(diag, vmax, delta, s=None):
 def cholesky(integral_generator=None,tol=1.0E-8,prescreen=True,debug=False,max_cv=None):
 
     if not isinstance(integral_generator, IntegralGenerator): 
-        raise TypeError('Invalide integral generator, must have base class IntegralGenerator')
+        raise TypeError('Invalid integral generator, must have base class IntegralGenerator')
     
     # TDOO check inputs
     nbasis = integral_generator.nbasis
@@ -313,6 +317,9 @@ def cholesky(integral_generator=None,tol=1.0E-8,prescreen=True,debug=False,max_c
     
     # Note: screening should work still as long as we keep shape of Vdiag consistent!
     if prescreen: # zero small diagonal matrix elements - see J. Chem. Phys. 118, 9481 (2003)
+        if debug:
+            imax = np.argmax(Vdiag)
+            print("imax , unflatten(imax) = ", imax, unflatten(imax))
         imax = np.argmax(Vdiag); vmax = Vdiag[unflatten(imax)]
         toScreen = np.less(Vdiag, tol*tol/vmax)
         Vdiag[toScreen] = 0.0
