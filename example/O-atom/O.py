@@ -5,12 +5,14 @@ import h5py as h5
 from pyscf import gto,scf
 
 # my libs
-from embedding.light.cholesky.simple_cholesky import cholesky
-from embedding.light.cholesky.integrals.gto import GTOIntegralGenerator
+from embedding.cholesky.simple_cholesky import cholesky
+from embedding.cholesky.integrals.gto import GTOIntegralGenerator
 
-import embedding.light.cholesky as ch
-import embedding.light.pyscf_embedding_lib as pel
-import embedding.light.io.gafqmc as gio
+import embedding.cholesky as ch
+import embedding as pel
+
+if "USE_GAFQMC" in os.environ:
+    import embedding.io.gafqmc as gio
 
 use_afqmclab=False
 if "AFQMCLAB_DIR" in os.environ:
@@ -25,7 +27,7 @@ mol = gto.M(atom=[['O',(0.000,0.000,0.000)]],
             verbose=4)
 
 mf = scf.ROHF(mol)
-mf.chkfile = 'Br-pyscf.chk'
+mf.chkfile = 'ROHF.chk'
 mf.kernel()
             
 mo = mf.mo_coeff
@@ -76,11 +78,14 @@ twoBody,numCholeskyActive,oneBody,S,E_const = pel.make_embedding_H(nfc=ncore,
                                                                    oneBody=k+v,
                                                                    S=S,
                                                                    transform_only=True)
-# write GAFQMC output
+
 orbs = np.eye(Mactive)
-gio.write_orbs(orbs, Mactive, "O.eigen_gms")
-gio.save_oneBody_gms(Mactive, oneBody, S)
-gio.save_cholesky(numCholeskyActive, Mactive, twoBody)
+
+# write GAFQMC output
+if "USE_GAFQMC" in os.environ:
+    gio.write_orbs(orbs, Mactive, "O.eigen_gms")
+    gio.save_oneBody_gms(Mactive, oneBody, S)
+    gio.save_cholesky(numCholeskyActive, Mactive, twoBody)
 
 # for comparison, also save in AFQMCLAB format, if installed.
 if use_afqmclab:
