@@ -1,33 +1,66 @@
 import numpy as np
 
-from pyscf import gto
+from pyscf import ao2mo
+
+from pyscf.pbc import gto
 from pyscf.gto import getints_by_shell
 
 from .base import IntegralGenerator
 
-class GTOIntegralGenerator(IntegralGenerator):
-    def __init__(self,mol,cart=False,*args,**kwargs):
+class GTOPBCIntegralFull(IntegralGenerator):
+    def __init__(self,mol,mf,*args,**kwargs):
+        #if not isinstance(mol,gto.Mole):
+        #    raise TypeError('mol must be a Pyscf molecule object')
+
+        super().__init__(*args,**kwargs)
+        self.mol = mol
+
+        nbasis = mol.nao_nr()
+
+        self.nbasis = nbasis
+
+        #eri = mol.pbc_intor('int2e_sph')
+        eri = mf.with_df.ao2mo(mf.mo_coeff)
+
+        print(f"GTOPBCIntegralFull: eri.shape = {eri.shape}\n            : nbasis = {nbasis} ")
+        V   = ao2mo.restore(1, eri, nbasis)
+        del(eri)
+
+        V   = V.reshape( nbasis*nbasis, nbasis*nbasis )
+        print(f"            : V.shape = {V.shape}")
+        self.V = V
+        
+    def get_row(self, index,*args,**kwargs):
+        
+        if 'Alist' in kwargs.keys():
+            try:
+                oneVec = kwargs['Alist'][-1,:,:]
+            except:
+                oneVec = kwargs['Alist']
+            self.V -= np.dot(oneVec[:, None], oneVec[None,:])
+
+        return self.V[index,:]
+
+    def get_diagonal(self,*args,**kwargs):
+        temp = self.V.diagonal().copy()
+        return temp.reshape(self.nbasis,self.nbasis)
+
+class GTOPBCIntegralGenerator(IntegralGenerator):
+    def __init__(self,mol,*args,**kwargs):
         if not isinstance(mol,gto.Mole):
             raise TypeError('mol must be a Pyscf molecule object')
-        
+
         super().__init__(*args,**kwargs)
         self.mol = mol
         self.nbasis = mol.nao_nr()
-        self.cart = cart
-
+    
     def get_row(self, index,*args,**kwargs):
-        if self.cart:
-            return V2b_row(self.mol, index, Alist=kwargs['Alist'], intor_name='int2e_cart')
-        else:
-            return V2b_row(self.mol, index, Alist=kwargs['Alist'])
-        
-    def get_diagonal(self,*args,**kwargs):
-        if self.cart:
-            return V2b_diagonal(self.mol,intor_name='int2e_cart')
-        else:
-            return V2b_diagonal(self.mol)
+        return V2b_row(self.mol, index, Alist=kwargs['Alist'])
 
-def GTO_ints_shellInd(mol, shell_range, intor_name='int2e_sph', verb=False):
+    def get_diagonal(self,*args,**kwargs):
+        return V2b_diagonal(self.mol)
+
+def GTO_ints_shellInd(mol, shell_range, verb=False):
     '''
     Inputs:
     mol - Pyscf molecule object describing the system
@@ -39,11 +72,10 @@ def GTO_ints_shellInd(mol, shell_range, intor_name='int2e_sph', verb=False):
     if verb:
         print(f'[DEBUG] : shell_range = {shell_range}' )
 
-    result = gto.moleintor.getints(intor_name, mol._atm, mol._bas, mol._env, aosym='s1', shls_slice=shell_range)
+    result = getints_by_shell('int2e_sph',  mol._atm, mol._bas, mol._env, aosym='s1', shls_slice=shell_range)
 
     return result
     
-
 def map_shellIndex(mol):
     '''
     this function constructs and returns a mapping between the global basis set index, mu, and
@@ -160,7 +192,7 @@ def V2b_row(mol, mu, Alist=None, intor_name='int2e_sph', verb=None):
     I, i = index_Map[i_global]
     L, l = index_Map[l_global]
 
-    Vrow = GTO_ints_shellInd(mol, shell_range=[I,I+1,L,L+1,0,num_shells,0,num_shells], intor_name=intor_name, verb=(verb>5))[i,l,:,:]
+    Vrow = GTO_ints_shellInd(mol, shell_range=[I,I+1,L,L+1,0,num_shells,0,num_shells], verb=(verb>5))[i,l,:,:]
  
     if Alist is not None and len(Alist) > 0:
              
