@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools < 60.0","numpy","scipy","h5py"]
+requires = ["setuptools < 60.0","numpy","scipy","h5py","pyscf"]
 build-backend = "setuptools.build_meta"
 
 [project]
