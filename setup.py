@@ -7,6 +7,6 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=[
-        'numpy', 'h5py', 'scipy'
+        'numpy', 'h5py', 'scipy', 'pyscf'
     ],
 )
