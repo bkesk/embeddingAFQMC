@@ -1,8 +1,6 @@
 import numpy as np
 import h5py as h5
 
-# TODO: recomend that built-in AFQMClab scripts all the output name
-#          to (optionally) be set
 
 def writeModel(nElec,oneBody,twoBody,fname='model_param'):
     ''' Export Hamiltonian to the disk.'''
