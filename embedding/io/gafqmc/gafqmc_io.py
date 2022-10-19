@@ -4,8 +4,10 @@ import pyqmc.matrices.gms as gms # written by Wirawan Purwanto
 from V2b_inspect import load_V2b_dump, save_V2b_dump, sym_2d_unpack, sym_2d_pack # written by Wirawan Purwanto
 
 
-def write_orbs(C, M, output, restricted=True): # simple wrapper function to interface with Wirawan's GAMESS format library
+def write_orbs(C, M, output, restricted=True): 
     '''
+    simple wrapper function to interface with Wirawan's GAMESS format library
+
     \psi_i = \sum^M_mu C_{mu i} G_\mu  where G_\mu are GTOs and \psi is molecular orbital.
     
     C - matrix containing the molecular orbitals
@@ -30,17 +32,13 @@ def save_cholesky(Ncv, M, CVlist, outfile="V2b_AO_cholesky.mat", verb=False):
     array containing the lower diagonal (LD) form of each CV with shape = (Ncv, M*(M+1)/2). This is
     the format that the GAFQMC code will expect.
     '''
-    # Q: Does this work with CVlist = [CV1, CV2, ... ,CV_Ncv] w. CV.shape = M*M (old method)
-    #               and with CVlist = np.array() w/ shape (Ncv,M,M) (new method)
-    #               it looks like it does, we have a 'reshape into the new shape
-    #M = int(np.sqrt(2*CV_LD.shape[1]))
     CVarray = np.empty((Ncv, M*(M+1)//2))
     if verb:
         print (CVarray.shape)
     for i in range(Ncv):
         # convert from a 1-D vector, to a MxM matrix rep.
-        # insert factor of 1/sqrt(2)        
-        Lmat = CVlist[i].reshape((M,M))*(1/np.sqrt(2)) #TODO: remove reshape one np.array version fully implemented!
+        # insert factor of 1/sqrt(2)
+        Lmat = CVlist[i].reshape((M,M))*(1/np.sqrt(2))
         if verb:
             print (i, Lmat.shape)
         sym_2d_pack(Lmat,CVarray[i])
@@ -68,9 +66,8 @@ def load_choleskyList_3_IndFormat(infile="V2b_AO_cholesky.mat",verb=False,is_com
     for i in range(Ncv):
         if verb:
             print ("vector ", i, flush=True)
-        # convert from a 1-D vector, to a MxM matrix rep.
-        # insert factor of sqrt(2) (pyscf and GAFQMC use different conventions concerning including/exclding the factor of 1/2 in the matrix elements        
-        Lmat = sym_2d_unpack(CV_LD[i])*np.sqrt(2) #CVlist[i].reshape(M,M)*(1/np.sqrt(2)))
+        # insert factor of sqrt(2)      
+        Lmat = sym_2d_unpack(CV_LD[i])*np.sqrt(2)
         if verb: 
             print (Lmat.shape)
         CVarray[i] = Lmat

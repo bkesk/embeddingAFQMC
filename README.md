@@ -69,5 +69,8 @@ Some "helper" tools from `legacy` may be updated and pushed back into the main b
 - make_embedding_H:
   - no need to return number of Cholesky vectors
 
+- cholesky:
+  - add ability to use comlpex-valued orbitals
+
 - `legacy` branch:
   - update tools for analyzing local orbitals for `main` branch
