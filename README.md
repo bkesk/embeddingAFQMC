@@ -51,12 +51,23 @@ twoBody,numCholeskyActive,oneBody,S,E0 = pel.make_embedding_H(nfc=1,
                                                               transform_only=True)
 ```
 
+## Legacy version
+
+Recently, the embeddingAFQMC Library was reorganized, and some redundant and/or 
+deprecated code has been romved.
+A legacy version of the embedding exists in the `legacy` branch for code that still uses it.
+Some "helper" tools from `legacy` may be updated and pushed back into the main branch.
+
 ## TODO:
 
 - General
-  - add a simple tutorial
+  - change print to logging.info (or similar)
+  - define and configure logger
   - add test for correct ordering of orbitals
   - add a Dockerfile
 
 - make_embedding_H:
   - no need to return number of Cholesky vectors
+
+- `legacy` branch:
+  - update tools for analyzing local orbitals for `main` branch
