@@ -6,10 +6,54 @@ A basic Python package for building orbitally-based embedding
 Hamiltonians in 2nd quantized form.
 These tools were developed for local embedding AFQMC [B. Eskridge, H. Krakauer, S. Zhang *J. Chem. Theory Comput.* 2019, 15, 7, 3949–3959](https://pubs.acs.org/doi/10.1021/acs.jctc.8b01244),
 but can be used for general frozen orbital transformations.
-The tools included are designed for AFQMC calculations, but the
-tools are applicable to other methods as well.
+The tools included are designed for AFQMC calculations, but are applicable to other methods as well.
+
+## Install:
+
+The embedding AFQMC package can be installed using:
+
+```bash
+git clone https://github.com/bkesk/embeddingAFQMC.git
+cd embeddingAFQMC
+python -m venv venv && . venv/bin/activate
+pip install -e .
+```
+
+the embedding AFQMC package provides a convenience [command-line interface (CLI)](#command-line-interface), and
+can be used directly [in Python](#in-python)
 
 ## Usage:
+
+### command-line interface
+
+The embedding package provides a cli to the high-level `make_embedding_H` function that can be run with the `embed` command.
+Help is available via the cli with `$ embed --help`. Alternatively, the following command provides similar functionality: `$ python -m embedding --help`.
+
+Using the cli requires a yaml-based input file. An example for an oxygen atom is provided below.
+
+```yaml
+geom:
+  comment: an oxygen atom
+  atoms: |
+    O 0.0 0.0 0.0
+basis:
+  O:
+    pyscf_lib: True
+    data: ccpvdz
+molecule:
+  spin: 2
+  charge: 0
+orbital_basis: 'ROHF.chk:/scf/mo_coeff'
+embedding:
+  nfc: 0
+  nactive:
+  E0: 0.0
+  tol: 1.0E-5
+```
+
+In this example, molecular orbitals from a PySCF checkpoint file are used as a basis.
+
+### In Python
 
 The primary interface to the embedding / frozen orbital transformation is the `make_embedding_H` function.
 Here is a minimal example of using this function to freeze the 1s electrons in an Oxygen atom:
@@ -63,7 +107,7 @@ Some "helper" tools from `legacy` may be updated and pushed back into the main b
 - General
   - change print to logging.info (or similar)
   - define and configure logger
-  - add test for correct ordering of orbitals
+  - add basic input file description
   - add a Dockerfile
 
 - make_embedding_H:
