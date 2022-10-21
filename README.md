@@ -61,7 +61,7 @@ Here is a minimal example of using this function to freeze the 1s electrons in a
 ```Python
 from pyscf import gto,scf
 
-from embedding ipmort make_embedding_H
+from embedding import make_embedding_H
 
 from embedding.cholesky import cholesky
 from embedding.cholesky.integrals.gto import GTOIntegralGenerator
@@ -86,13 +86,12 @@ gto_gen = GTOIntegralGenerator(mol)
 numcholesky,choleskyAO = cholesky(gto_gen,tol=1.0E-6)
 
 # create frozen orbital Hamiltonian
-twoBody,numCholeskyActive,oneBody,S,E0 = pel.make_embedding_H(nfc=1,
-                                                              tol=1.0e-8,
-                                                              C=basis,
-                                                              twoBody=choleskyAO,
-                                                              oneBody=K,
-                                                              S=S,
-                                                              transform_only=True)
+twoBody,numCholeskyActive,oneBody,S,E0 = make_embedding_H(ncore=1,
+                                                          C=basis,
+                                                          twoBody=choleskyAO,
+                                                          oneBody=K,
+                                                          S=S,
+                                                          transform_only=True)
 ```
 
 ## Legacy version
