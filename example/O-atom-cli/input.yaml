@@ -1,0 +1,17 @@
+geom:
+  comment: an oxygen atom
+  atoms: |
+    O 0.0 0.0 0.0
+basis:
+  O:
+    pyscf_lib: True
+    data: ccpvdz
+molecule:
+  spin: 2
+  charge: 0
+orbital_basis: 'ROHF.chk:/scf/mo_coeff'
+embedding:
+  nfc: 0
+  nactive:
+  E0: 0.0
+  tol: 1.0E-5

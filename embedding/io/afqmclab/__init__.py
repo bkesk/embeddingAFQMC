@@ -1,2 +1,2 @@
-from .afqmaclab_io import *
+from .afqmclab_io import writeModel
 
