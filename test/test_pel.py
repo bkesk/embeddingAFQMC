@@ -66,9 +66,9 @@ def test_high_level():
     nactive = 4
     
     print("Nactive AFQMC = ", nactive)
-    twoBody,ncv,oneBody,S,E0 = pel.make_embedding_H(nfc=ncore,
+    twoBody,ncv,oneBody,S,E0 = pel.make_embedding_H(ncore=ncore,
                                                     nactive=nactive,
-                                                    Enuc=0.0,
+                                                    E0=0.0,
                                                     tol=1.0e-8,
                                                     C=mo,
                                                     twoBody=choleskyAO,
