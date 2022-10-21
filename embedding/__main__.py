@@ -2,8 +2,6 @@ from embedding.cli import get_cli_args
 from embedding import make_embedding_H, get_one_body, get_two_body
 from embedding.io.infile import get_settings, mol_from_input, orbitals_from_input, emb_params_from_input
 
-import pdb
-
 def _make_embedding_H(input_fname, outcode='afqmclab'):
 
     # TODO: get twoBody
@@ -16,7 +14,6 @@ def _make_embedding_H(input_fname, outcode='afqmclab'):
     S, oneBody = get_one_body(mol)
     twoBody = get_two_body(mol)
 
-    pdb.set_trace()
     H2,_,H1,S,E0 = make_embedding_H(C=basis_orbitals,oneBody=oneBody,S=S,twoBody=twoBody,**emb_params)
 
     match outcode:
