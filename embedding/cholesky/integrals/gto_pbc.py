@@ -209,14 +209,11 @@ def V2b_row(mol, mu, Alist=None, intor_name='int2e_sph', verb=None):
             Alist is a 3-D numpy array with shape (# cholesky vectors, nbasis, nbasis)
             '''
             
-            #TODO: implement for complex CVs
-            #AdagList=np.transpose(Alist.conj(),axes=[0,2,1]) # how expensive is this?
-            
-            M = Alist.shape[1] #int(np.sqrt(Alist.shape[1]))
+            M = Alist.shape[1]
             i = mu // M
             l = mu % M
-            #row = np.einsum('g,gjk',Alist[:,i,l],AdagList)
-            row = np.einsum('g,gjk',Alist[:,i,l],Alist) # this works since A are real
+            
+            row = np.einsum('g,gjk',Alist[:,i,l],Alist)
 
             return row
 

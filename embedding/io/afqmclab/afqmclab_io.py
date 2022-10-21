@@ -1,6 +1,7 @@
 import numpy as np
 import h5py as h5
 
+
 def writeModel(nElec,oneBody,twoBody,fname='model_param'):
     ''' Export Hamiltonian to the disk.'''
     
