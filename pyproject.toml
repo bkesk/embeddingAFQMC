@@ -20,3 +20,6 @@ classifiers = [
 [project.urls]
 "Homepage" = "https://github.com/bkesk/embeddingAFQMC"
 "Bug Tracker" = "https://github.com/bkesk/embeddingAFQMC/issues"
+
+[project.scripts]
+embed = "embedding.__main__:main"
