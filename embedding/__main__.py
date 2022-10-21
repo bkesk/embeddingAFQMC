@@ -1,4 +1,4 @@
-from cli import get_cli_args
+from embedding.cli import get_cli_args
 from embedding import make_embedding_H, get_one_body, get_two_body
 from embedding.io.infile import get_settings, mol_from_input, orbitals_from_input, emb_params_from_input
 
