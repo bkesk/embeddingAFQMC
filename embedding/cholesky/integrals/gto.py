@@ -140,8 +140,6 @@ def V2b_row(mol, mu, Alist=None, intor_name='int2e_sph', verb=None):
     if verb > 5:
         print("# of shells: ", nShells)
    
-    Vrow=np.zeros((nbasis,nbasis)) # row indices are (i,l), column are (j,k)
-
     index_Map = map_shellIndex(mol)
     if verb > 5:
         print("index map")
@@ -164,7 +162,7 @@ def V2b_row(mol, mu, Alist=None, intor_name='int2e_sph', verb=None):
  
     if Alist is not None and len(Alist) > 0:
              
-        def build_row(Alist, mu, debug=False):
+        def build_row(mu, debug=False):
             '''
             compute the diagonal of V from the set of vectors, A
             if a,b are pair indices:
@@ -192,11 +190,11 @@ def V2b_row(mol, mu, Alist=None, intor_name='int2e_sph', verb=None):
             print("Vrow direct from integrals", Vrow)
             Vrow_temp = Vrow.copy()
 
-        Vrow = Vrow - build_row(Alist, mu)
+        Vrow = Vrow - build_row(mu)
     
         if verb > 4:
             print("   Vrow - A*A^dag (i.e. residual matrix row):", Vrow)
-            print("   A*A^dag (direct function call to build_row()):", build_row(Alist, i_global*nbasis + l_global, nbasis))
+            print("   A*A^dag (direct function call to build_row()):", build_row(i_global*nbasis + l_global))
             print("   delta Vrow: ", Vrow_temp - Vrow)
             print("\n   *** *** *** ***\n")
             
