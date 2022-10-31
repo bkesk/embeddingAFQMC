@@ -42,34 +42,3 @@ def emb_params_from_input(fname):
     except ValueError:
         logging.info(f"no embedding block defined: treating all orbitals as active")
         return emb_params
-
-    '''
-    if 'ncore' in emb.keys():
-        emb_params['ncore'] = int(emb['ncore'])
-    else:
-        emb_params['ncore'] = 0
-
-    if 'nactive' in emb.keys():
-        emb_params['nactive'] = int(emb['nactive'])
-    else:
-        emb_params['nactive'] = 0
-
-    if 'E0' in emb.keys():
-        emb_params['E0'] = float(emb['E0'])
-    else:
-        emb_params['E0'] = 0
-
-    if 'transform_only'in emb.keys():
-        emb_params['transform_only'] = bool(emb['transform_only'])
-    else:
-        emb_params['transform_only']  = False
-    
-    if 'delta' in emb.keys():
-        emb_params['delta'] = float(emb['delta'])
-    else:
-        emb_params['delta'] = 0
-    '''
-
-    
-
-
