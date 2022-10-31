@@ -39,9 +39,7 @@ def GTO_ints_shellInd(mol, shell_range, intor_name='int2e_sph', verb=False):
     if verb:
         print(f'[DEBUG] : shell_range = {shell_range}' )
 
-    result = gto.moleintor.getints(intor_name, mol._atm, mol._bas, mol._env, aosym='s1', shls_slice=shell_range)
-
-    return result
+    return gto.moleintor.getints(intor_name, mol._atm, mol._bas, mol._env, aosym='s1', shls_slice=shell_range)
     
 
 def map_shellIndex(mol):
@@ -180,9 +178,8 @@ def V2b_row(mol, mu, Alist=None, intor_name='int2e_sph', verb=None):
             i = mu // M
             l = mu % M
             
-            row = np.einsum('g,gjk',Alist[:,i,l],Alist)
+            return np.einsum('g,gjk',Alist[:,i,l],Alist)
 
-            return row
 
         Ncv = len(Alist)
         if verb > 4:
