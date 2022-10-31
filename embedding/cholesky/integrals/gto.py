@@ -162,7 +162,7 @@ def V2b_row(mol, mu, Alist=None, intor_name='int2e_sph', verb=None):
  
     if Alist is not None and len(Alist) > 0:
              
-        def build_row(mu, debug=False):
+        def build_row(mu):
             '''
             compute the diagonal of V from the set of vectors, A
             if a,b are pair indices:
