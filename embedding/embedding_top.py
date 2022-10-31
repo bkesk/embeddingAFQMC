@@ -26,15 +26,15 @@ def make_embedding_H(ncore=0,nactive=None,E0=0.0,tol=1.0e-6,C=None,twoBody=None,
     high level function to produce the embedding / downfolding Hamiltonian
    
     Required Inputs:
-      - ncore (integer) : number of orbitals to freeze
-      - nactive (integer): number of orbitals to treat as active in the embedding Hamiltonian
-      - E0 (float) : the nuclear repulsion energy (in E_{Hartree}) plus any other constant energy terms
       - C (numpy.Array, float of complex) 
       - oneBody (numpy.Array, float of complex) 
       - twoBody (numpy.Array, float of complex) 
       - S (numpy.Array) 
 
     Optional Inputs:
+      - ncore (integer) : number of orbitals to freeze
+      - nactive (integer): number of orbitals to treat as active in the embedding Hamiltonian
+      - E0 (float) : the nuclear repulsion energy (in E_{Hartree}) plus any other constant energy terms
       - transform_only (Boolean) : if False, a secondary Cholesky decomposition will be performed on the active space 
                                     two-body integrals. This is meant to reduce the overhead of 
       - tol (float) : tolerance for performing Cholesky decomposition on the active space two-body intergrals. 
@@ -48,6 +48,7 @@ def make_embedding_H(ncore=0,nactive=None,E0=0.0,tol=1.0e-6,C=None,twoBody=None,
         - S_active (numpy.Array shape (nactive,nactive) )
         - E_const (float) : contstant energy term (E0 + frozen orbital contribution)
     '''
+    
     if C is None:
         raise ValueError("\"make_embedding_Hb\" requires C as input")
     
