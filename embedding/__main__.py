@@ -4,7 +4,6 @@ from embedding.io.infile import get_settings, mol_from_input, orbitals_from_inpu
 
 def _make_embedding_H(input_fname, outcode='afqmclab'):
 
-    # TODO: get twoBody
     # TODO: check if reading from input is succesfull : end gracefully if not
 
     mol = mol_from_input(input_fname)
@@ -28,7 +27,7 @@ def _make_embedding_H(input_fname, outcode='afqmclab'):
             _save_hdf5(H2,H1,S,E0)
         case _:
             print(f"No interface for {outcode} : saving raw matrix elements in hdf5")
-            _save_hdf5()
+            _save_hdf5(H2,H1,S,E0)
 
 
 def _save_afqmclab(nelec,H2,H1,E0=0.0,model_name='model_param'):

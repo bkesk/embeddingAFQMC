@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 
 import embedding.cholesky as ch
@@ -116,6 +118,9 @@ def get_two_body(mol, tol=1.0E-6):
     '''
     from embedding.cholesky import cholesky
     from embedding.cholesky.integrals.gto import GTOIntegralGenerator
+
+    if mol.verbose > 4:
+        logging.warn("mol has high verbosity: Cholesky output will be very large")
 
     gto_gen = GTOIntegralGenerator(mol)
     numcholesky,choleskyAO = cholesky(gto_gen,tol=tol)
