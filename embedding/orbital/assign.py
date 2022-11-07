@@ -89,7 +89,7 @@ def gen_orbital_stats(mol: gto.Mole,
             )
 
 
-def write_stats(orb_stats : Iterable[OrbitalStat] = None):
+def print_stats(orb_stats : Iterable[OrbitalStat] = None):
     '''
     write orbital statistics
     '''
@@ -97,3 +97,34 @@ def write_stats(orb_stats : Iterable[OrbitalStat] = None):
     for orb in orb_stats:
         print(f"{orb.index:>5} {orb.second_moment:>12f} {np.sqrt(orb.second_moment):>12f} ", end="")
         print(f"({orb.position[0]:>+8.6e},{orb.position[1]:>+8.6e},{orb.position[2]:>+8.6e}) {orb.distance:>12f}")
+
+
+def orbital_count(name : str, orb_stats : Iterable[OrbitalStat], bins : int = 100, display_plot=False, save_data=True):
+    '''
+    writes a file called 'name' which contains the cumulative distribution of local orbitals
+    as a function of the 'distance' attribute of the orb_stats.
+    '''
+
+    import matplotlib.pyplot as plt
+
+    distances = [ orb_stat.distance for orb_stat in orb_stats ]
+
+    _hist, binLabels = np.histogram(distances, bins=bins, range=(-0.001,np.amax(distances)), density=False)
+    count = np.cumsum(_hist)
+
+    fig,ax = plt.subplots(1,1)
+
+    ax.plot(binLabels[1:], count)
+    ax.set_title(f"{name} Orbital count vs R")
+    
+    if display_plot:
+        plt.show()
+    else:
+        plt.savefig(name + "_cdf.png")
+
+    if save_data:
+        with open(name + '.dat', 'w') as f:
+            for bl,c in zip(binLabels[1:], count, strict=True):
+                f.write(f"{bl:>8.6f} {c:>6d}\n")
+    
+    return count

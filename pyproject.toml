@@ -1,16 +1,16 @@
 [build-system]
-requires = ["setuptools < 60.0","numpy","scipy","h5py","pyscf"]
+requires = ["setuptools < 60.0","numpy","scipy","h5py","pyscf","matplotlib"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "embedding_bkesk"
-version = "0.0.1"
+version = "0.0.2"
 authors = [
   { name="Kyle Eskridge" },
 ]
 description = "A package for building 2nd quantized embedding Hamiltonians"
 readme = "README.md"
-requires-python = ">=3.6"
+requires-python = ">=3.7"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
