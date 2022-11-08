@@ -128,3 +128,40 @@ def orbital_count(name : str, orb_stats : Iterable[OrbitalStat], bins : int = 10
                 f.write(f"{bl:>8.6f} {c:>6d}\n")
     
     return count
+
+def sigma2_vs_dist(name : str, orb_stats : Iterable[OrbitalStat], display_plot=False, save_data=True):
+    '''
+    produce sigma2 vs orbital distance, and generate corresponding plot.
+    '''
+    
+    import matplotlib.pyplot as plt
+
+    sigma2 = [ (orb_stat.distance, np.sqrt(orb_stat.second_moment)) for orb_stat in sorted(orb_stats)]
+    
+    if save_data:
+        with open(f"{name}_sigma2.dat","w") as f:
+            f.writelines(f"{d} {s2}\n" for d,s2 in sigma2)
+
+    def add_bar(ax, x, y, **kwargs):
+        ax.bar(x,y,width=0.5,
+                edgecolor='black',
+                alpha=0.5,
+                hatch='//',
+                **kwargs)
+    
+    fig, ax = plt.subplots(1,1)
+    add_bar(ax, [d for d,_ in sigma2],
+                [s for _,s in sigma2])
+
+    ax.set_xlabel(r'Distance from origin (Bohr)',fontsize=16)
+    ax.set_ylabel(r'$\sigma_2 \equiv \sqrt{\langle (r - \langle r \rangle)^2 \rangle}$ (Bohr)',fontsize=16)
+
+    fig.tight_layout()
+
+    if display_plot:
+        plt.show()
+    else:
+        plt.savefig(name + "_orbital_bars.png")
+
+    return sigma2
+
