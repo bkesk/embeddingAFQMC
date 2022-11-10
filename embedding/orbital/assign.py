@@ -94,12 +94,13 @@ def print_stats(orb_stats : Iterable[OrbitalStat] = None):
     write orbital statistics
     '''
     print(f'{"i":>5} {"mu_2":>12} {"sigma_2":>12} {"Centroid (x,y,z)":^43} {"Distance":<12}')
+    print(f'{"":_^100}')
     for orb in orb_stats:
         print(f"{orb.index:>5} {orb.second_moment:>12f} {np.sqrt(orb.second_moment):>12f} ", end="")
         print(f"({orb.position[0]:>+8.6e},{orb.position[1]:>+8.6e},{orb.position[2]:>+8.6e}) {orb.distance:>12f}")
 
 
-def orbital_count(name : str, orb_stats : Iterable[OrbitalStat], bins : int = 100, display_plot=False, save_data=True):
+def orbital_count(name : str, orb_stats : Iterable[OrbitalStat], bins : int = 100, display_plot=False, save_fig=False, save_data=True, fig=None, ax=None, **kwargs):
     '''
     writes a file called 'name' which contains the cumulative distribution of local orbitals
     as a function of the 'distance' attribute of the orb_stats.
@@ -112,14 +113,16 @@ def orbital_count(name : str, orb_stats : Iterable[OrbitalStat], bins : int = 10
     _hist, binLabels = np.histogram(distances, bins=bins, range=(-0.001,np.amax(distances)), density=False)
     count = np.cumsum(_hist)
 
-    fig,ax = plt.subplots(1,1)
-
-    ax.plot(binLabels[1:], count)
-    ax.set_title(f"{name} Orbital count vs R")
+    if fig is None or ax is None:
+        fig,ax = plt.subplots(1,1)
+        ax.set_title(f"{name} orbital count vs R")
     
+    ax.plot(binLabels[1:], count, **kwargs)
+
     if display_plot:
         plt.show()
-    else:
+
+    if save_fig:
         plt.savefig(name + "_cdf.png")
 
     if save_data:
@@ -129,7 +132,7 @@ def orbital_count(name : str, orb_stats : Iterable[OrbitalStat], bins : int = 10
     
     return count
 
-def sigma2_vs_dist(name : str, orb_stats : Iterable[OrbitalStat], display_plot=False, save_data=True):
+def sigma2_vs_dist(name : str, orb_stats : Iterable[OrbitalStat], display_plot=False, save_fig=False, save_data=True, fig=None, ax=None, **kwargs):
     '''
     produce sigma2 vs orbital distance, and generate corresponding plot.
     '''
@@ -146,22 +149,26 @@ def sigma2_vs_dist(name : str, orb_stats : Iterable[OrbitalStat], display_plot=F
         ax.bar(x,y,width=0.5,
                 edgecolor='black',
                 alpha=0.5,
-                hatch='//',
+                hatch='...',
                 **kwargs)
     
-    fig, ax = plt.subplots(1,1)
+    if fig is None or ax is None:
+        fig, ax = plt.subplots(1,1)
+    
+        ax.set_xlabel(r'Distance from origin (Bohr)',fontsize=16)
+        ax.set_ylabel(r'$\sigma_2 \equiv \sqrt{\langle (r - \langle r \rangle)^2 \rangle}$ (Bohr)',fontsize=16)
+        ax.set_title(f'{name} orbital size ($\sigma_2$) vs. position')
+
+        fig.tight_layout()
+
     add_bar(ax, [d for d,_ in sigma2],
-                [s for _,s in sigma2])
-
-    ax.set_xlabel(r'Distance from origin (Bohr)',fontsize=16)
-    ax.set_ylabel(r'$\sigma_2 \equiv \sqrt{\langle (r - \langle r \rangle)^2 \rangle}$ (Bohr)',fontsize=16)
-
-    fig.tight_layout()
+                [s for _,s in sigma2],
+                **kwargs)
 
     if display_plot:
         plt.show()
-    else:
+
+    if save_fig:
         plt.savefig(name + "_orbital_bars.png")
 
     return sigma2
-
