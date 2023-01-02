@@ -335,3 +335,39 @@ def sort_analyze(mol:gto.Mole, basis:Basis, origin:Iterable[float]=None) -> None
     ax2.legend()
     fig2.tight_layout()
     fig2.savefig("cumulative_orb_dist.png")
+
+    
+
+def choose_active(mol:gto.Mole, basis:Basis, origin:Iterable[float]=None, Ro:float=float('inf'), Rv:float=float('inf')):
+    '''
+    Choose active space based on Ro/Rv.
+    '''
+    from embedding.orbital import gen_orbital_stats, orbital_count
+
+    orbital_cuts = {}
+
+    stats = list(
+            sorted(
+                gen_orbital_stats(mol, orbitals,
+                                  origin=origin,
+                                  start_index=global_ind),
+                reverse=reverse
+                )
+            )
+
+    orbital_cuts[part] = orbital_count(stats, name=part, fig=fig2, ax=ax2, label=f'{part}')
+
+    Ncore = 0
+    Nactive = 0
+    for part,N in orbital_cuts.items():
+        match part:
+            case "core" | "c":
+                Ncore += N
+            case "double_occ" | "do" | "occ" :
+                Nactive += N
+                # only doubly-occupied local orbital should be frozen
+                Ncore += basis.part_size(part) - N
+            case _:
+                Nactive += N
+
+    return Ncore,Nactive
