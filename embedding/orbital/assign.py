@@ -48,6 +48,7 @@ def euclid_nd(r1,r2):
 def gen_orbital_stats(mol: gto.Mole,
                       orbitals : np.array,
                       start_index : int = 0,
+                      indices : list = None,
                       metric : callable = euclid_nd,
                       origin : tuple[float,float,float] = (0.0,0.0,0.0)) -> Generator[OrbitalStat] :
     '''
@@ -59,6 +60,7 @@ def gen_orbital_stats(mol: gto.Mole,
                           -> may be a subset of the full set of orbitals (ex:
                                                     occupied orbitals only)
     - start_index : starting index for *labelling* orbitals
+    - indices : list of indices to use (start_index is ignored if indices is not None!)
     '''
 
     M,N = orbitals.shape
@@ -77,12 +79,17 @@ def gen_orbital_stats(mol: gto.Mole,
     # < r^2 >
     expect_rsq = np.matmul(orbitals_dagger, np.matmul(rsq, orbitals))
   
+    if indices is not None:
+        get_index = lambda x: x[i]
+    else:
+        get_index = lambda x: x + start_index
+
     for i in range(N):
         # (see TODO above) : this is not clear!
         position = [ c[i,i] for c in centroids ]
 
         yield OrbitalStat(
-            index=i + start_index,
+            index=get_index(i),
             distance=metric(position,origin),
             position=position,
             second_moment=expect_rsq[i,i] - np.dot(position,position)
@@ -100,10 +107,23 @@ def print_stats(orb_stats : Iterable[OrbitalStat] = None):
         print(f"({orb.position[0]:>+8.6e},{orb.position[1]:>+8.6e},{orb.position[2]:>+8.6e}) {orb.distance:>12f}")
 
 
-def orbital_count(name : str, orb_stats : Iterable[OrbitalStat], bins : int = 100, display_plot=False, save_fig=False, save_data=True, fig=None, ax=None, **kwargs):
+def active_from_radii(R:float, bins:np.array, count:np.array):
     '''
-    writes a file called 'name' which contains the cumulative distribution of local orbitals
-    as a function of the 'distance' attribute of the orb_stats.
+    get number of active orbitals from localization radius.
+    '''
+    for i,b in enumerate(bins[:-1]):
+        if b > R:
+            return[count[i]]
+
+def orbital_count(orb_stats:Iterable[OrbitalStat], name:str='orbitals', R:float=None, bins:int=100, display_plot=False, save_fig=False, save_data=True, fig=None, ax=None, **kwargs):
+    '''
+    Computes the cummulative distribtion of orbitals vs. centroid position.
+    Returns the number of orbitals with centroid less than R (if given)
+    or the total number of orbitals.
+
+    Optionally, can:
+    - write cummulative orbital distribution to a file
+    - plot cummulative orbital distribution in a new plot / add to existing
     '''
 
     import matplotlib.pyplot as plt
@@ -112,6 +132,14 @@ def orbital_count(name : str, orb_stats : Iterable[OrbitalStat], bins : int = 10
 
     _hist, binLabels = np.histogram(distances, bins=bins, range=(-0.001,np.amax(distances)), density=False)
     count = np.cumsum(_hist)
+
+    #import pdb
+    #pdb.set_trace()
+
+    if R is not None:
+        Na = active_from_radii(R,binLabels,count)
+    else:
+        Na = count[-1]
 
     if fig is None or ax is None:
         fig,ax = plt.subplots(1,1)
@@ -130,9 +158,9 @@ def orbital_count(name : str, orb_stats : Iterable[OrbitalStat], bins : int = 10
             for bl,c in zip(binLabels[1:], count, strict=True):
                 f.write(f"{bl:>8.6f} {c:>6d}\n")
     
-    return count
+    return Na
 
-def sigma2_vs_dist(name : str, orb_stats : Iterable[OrbitalStat], display_plot=False, save_fig=False, save_data=True, fig=None, ax=None, **kwargs):
+def sigma2_vs_dist(orb_stats : Iterable[OrbitalStat], name : str, display_plot=False, save_fig=False, save_data=True, fig=None, ax=None, **kwargs):
     '''
     produce sigma2 vs orbital distance, and generate corresponding plot.
     '''

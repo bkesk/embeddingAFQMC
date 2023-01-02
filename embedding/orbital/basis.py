@@ -26,6 +26,16 @@ class Basis:
     The Basis.parts dictionary tracks the partitioning of the basis into
     smaller sets. The "default" partition is a holding place for any orbitals
     not assigned to a specific partition.
+    
+    Special partition names:
+    - 'default' : a holding place for unasigned orbitals
+    - 'core' or 'c' : core orbitals - used for *energetic* core orbitals
+    - 'double_occ' or 'do' : doubly-occupied orbitals (occupancy is exactly 2)
+    - 'single_occ' or 'so' : singly-occupied orbitals ( 0 < occupancy < 2 )
+    - 'virtual' or 'v' : virtual orbitals (occupancy is exactly 0)
+
+    #TODO: document special partition names ('core','virtual') in a user guide.
+    #TODO: need to be consistent with names: ex: is a partion the indices or the orbitals?
     '''
 
     def __init__(self, mf:SCF=None, C:np.array=None, S:np.array=None, ncore:int=0 ) -> None:
@@ -111,6 +121,80 @@ class Basis:
         except KeyError:
             logging.error(f"no partition with name {name}")
 
+    def part_size(self, name:str)-> int:
+        '''
+        return number of orbitals in a partion
+        '''
+        try:
+            orbitals = self.parts[name]
+            return len(orbitals)
+        except KeyError:
+            logging.error(f"no partition with name {name}")
+
+
+class LocalBasis(Basis):
+    """
+    a Basis class focused on local basis sets. Additional functionality:
+
+    Attributes:
+    - _loc_stats : a dictionary a list for each partition where each list
+     consists of OrbitalStat instances for each orbital in the partition.
+
+    Methods:
+    - get_loc_stats()
+    - _make_loc_stats()
+
+    DevNotes:
+    - sorting should be external!! (resist the temptation!)
+    """
+
+    def __init__(self, mf: SCF = None, mol:gto.Mole = None, C: np.array = None, S: np.array = None, ncore: int = 0) -> None:
+        super().__init__(mf, C, S, ncore)
+
+        if mol is not None:
+            localize(mol,self)
+        elif mf is not None:
+            localize(mf.mol,self)
+
+        self._loc_stats = {'default' : None}
+
+
+    def get_loc_stats(self, part, mol:gto.Mole, origin:Iterable[float]=None) -> None:
+
+        try:
+            assert part in self.parts
+        except AssertionError:
+            logging.error(f"Attempted to get localization stats for non-existant partition '{part}'")
+            raise ValueError(f"No partition '{part}' exists in Basis instance")
+
+        if part not in self._loc_stats or self._loc_stats[part] is None:
+            self._make_loc_stats(part)
+
+        return self._loc_stats[part]
+
+
+    def _make_loc_stats(self, part, mol:gto.Mole, origin:Iterable[float]=None) -> None:
+        '''
+        make localization statistics
+        '''
+        from embedding.orbital import gen_orbital_stats
+
+        try:
+            assert part in self.parts
+        except AssertionError:
+            logging.error(f"Attempted to make localization stats for non-existant partition '{part}'")
+            raise ValueError(f"No partition '{part}' exists in Basis instance")
+
+        
+        orbitals = self.get_part(part)
+        
+        #TODO: need to decide how to pass the "get_orbital_stats" arguments into the LocalBasis._make_loc_stats(self, part) method
+        #         I may need to save a reference to mol.
+        self._loc_stats[part] = gen_orbital_stats(mol,
+                                                  orbitals=orbitals,
+                                                  origin=origin,
+                                                  indices=list(self.get_part[part]))
+
 
 def localize(mol:gto.Mole, basis:Basis) -> None:
     '''
@@ -127,16 +211,68 @@ def localize(mol:gto.Mole, basis:Basis) -> None:
         basis.set_part(part, loc_orbitals)
 
 
+
+#TODO: this should only sort, generate stats earlier!
+def sort_basis(mol:gto.Mole, basis:Basis, origin:Iterable[float]=None) -> None:
+    """
+    Sort an instance of "Basis" respecting existing partitions.
+    """
+    from embedding.orbital import gen_orbital_stats
+
+    global_ind = 0
+    for part in basis.parts.keys():
+
+        match part:
+            case "default":
+                continue
+            case "virtual" | "virt" | "v":
+                reverse = False
+            case _:
+                reverse = True
+
+        orbitals = basis.get_part(part)
+        
+        # Should "stats" be an artibute within the Basis class?
+        stats = list(
+            sorted(
+                gen_orbital_stats(mol, orbitals,
+                                  origin=origin,
+                                  start_index=global_ind),
+                reverse=reverse
+                )
+            )
+        
+        # update basis with new order
+        order = [ s.index - global_ind for s in stats ]
+        basis.set_part(part, orbitals[:,order])
+
+        # save stats
+        basis.orb_stats[part] = stats
+
+        global_ind += orbitals.shape[1]
+
+
+#TODO: separate sorting from analysis : high-level function will call both!
+#        - will save stats within 'Basis'
 def sort_analyze(mol:gto.Mole, basis:Basis, origin:Iterable[float]=None) -> None:
     '''
     High-level convenince function to analyze and sort a (local) basis.
     Will run for a non-local basis, but results may not be meaningful.
 
     Basis instance is updated in-place.
+
+    Returns:
+    - (Ncore,Nactive) : a tuple with the number of core orbitals, and active orbitals
+                         given the chosen Ro, Rv parameters.
+    
+    #TODO: we actually need to handle the 'standard' partitions quite differently here. Options:
+    1. case-match and call separate _sort_analyze for each standard name
+    2. sort_analyze ONLY here, and count orbitals in a separate function (which would work a lot like 1.)
     '''
     import matplotlib.pyplot as plt
     from embedding.orbital import gen_orbital_stats, print_stats, orbital_count,sigma2_vs_dist
 
+    
 
     if origin is None:
         # if no origin given, use first atom in geometry
@@ -168,12 +304,13 @@ def sort_analyze(mol:gto.Mole, basis:Basis, origin:Iterable[float]=None) -> None
 
         orbitals = basis.get_part(part)
         
+        # Should "stats" be an atribute within the Basis class?
         stats = list(
             sorted(
                 gen_orbital_stats(mol, orbitals,
                                   origin=origin,
                                   start_index=global_ind),
-                                  reverse=reverse
+                reverse=reverse
                 )
             )
         
@@ -188,8 +325,8 @@ def sort_analyze(mol:gto.Mole, basis:Basis, origin:Iterable[float]=None) -> None
         print_stats(stats)
 
         # generate info plots:
-        sigma2_vs_dist(part, stats, fig=fig1, ax=ax1, label=f'{part}')
-        orbital_count(part, stats, fig=fig2, ax=ax2, label=f'{part}')
+        sigma2_vs_dist(stats, name=part, fig=fig1, ax=ax1, label=f'{part}')
+        orbital_count(stats, name=part, fig=fig2, ax=ax2, label=f'{part}')
 
     ax1.legend()
     fig1.tight_layout()
