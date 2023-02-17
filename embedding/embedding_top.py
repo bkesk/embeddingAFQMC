@@ -50,7 +50,7 @@ def make_embedding_H(ncore=0,nactive=None,E0=0.0,tol=1.0e-6,C=None,twoBody=None,
     '''
     
     if C is None:
-        raise ValueError("\"make_embedding_Hb\" requires C as input")
+        raise ValueError("\"make_embedding_H\" requires C as input")
     
     if nactive is None:
         nactive = S.shape[0] - ncore
