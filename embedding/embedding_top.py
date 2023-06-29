@@ -23,7 +23,18 @@ def ao2mo_mat(C, mat):
     return matMO
 
 
-def make_embedding_H(ncore=0,nactive=None,E0=0.0,tol=1.0e-6,C=None,twoBody=None,oneBody=None,S=None,transform_only=False):
+def make_embedding_H(
+        ncore=0,
+        nactive=None,
+        E0=0.0,
+        tol=1.0e-6,
+        C=None,
+        twoBody=None,
+        oneBody=None,
+        S=None,
+        transform_only=False,
+        max_cv=None
+    ):
     '''
     high level function to produce the embedding / downfolding Hamiltonian
    
@@ -42,7 +53,8 @@ def make_embedding_H(ncore=0,nactive=None,E0=0.0,tol=1.0e-6,C=None,twoBody=None,
       - tol (float) : tolerance for performing Cholesky decomposition on the active space two-body intergrals. 
                            IMPORTANT: tol should be greater than the tolerance of the original integrals. i.e. for
                            Cholesky vector inputs, tol should be greater than the original cholesky threshold.
- 
+      - max_cv (int) : the maximum number of Cholesky vectors to compute. Cholesky decomposition will halt at this number
+
     Returns:
         - twoBodyActive (numpy.Array shape (NcvActive,nactive,nactive) )
         - NcvActive (int)
@@ -72,7 +84,7 @@ def make_embedding_H(ncore=0,nactive=None,E0=0.0,tol=1.0e-6,C=None,twoBody=None,
 
         print(f'Performing Cholesky decomposition within the active space num. frozen occupied={ncore}, num. of active orbitals = {nactive}', flush=True)
         V = FactoredIntegralGenerator(Alist[:,ncore:,ncore:])
-        NcvActive, twoBodyActive = ch.cholesky(integral_generator=V,tol=tol)
+        NcvActive, twoBodyActive = ch.cholesky(integral_generator=V,tol=tol,max_cv=max_cv)
         del(V)
 
     print('Computing one-body embedding terms', flush=True)
@@ -83,7 +95,7 @@ def make_embedding_H(ncore=0,nactive=None,E0=0.0,tol=1.0e-6,C=None,twoBody=None,
     S_active = S_MO[ncore:,ncore:]
     oneBody_active = oneBody_MO[ncore:,ncore:]
 
-    print(f'shape of oneBody_active is {oneBody_active.shape}')
+    print(f'shape of oneBody_active is {oneBody_active.shape}', flush=True)
     if ncore > 0:
         oneBody_active+=ch.get_embedding_potential(ncore, C, Alist, AdagList=None,is_complex=is_complex)
     
@@ -95,7 +107,7 @@ def make_embedding_H(ncore=0,nactive=None,E0=0.0,tol=1.0e-6,C=None,twoBody=None,
         E_K=0.0
         E_V=0.0
     E_const = E0 + E_K + E_V
-    print(f'E_0 = E_0 (input) + E_K + E_V = {E_const} with:\n  - E_0 (input) = {E0}\n  - E_K = {E_K}\n  - E_V = {E_V}')
+    print(f'E_0 = E_0 (input) + E_K + E_V = {E_const} with:\n  - E_0 (input) = {E0}\n  - E_K = {E_K}\n  - E_V = {E_V}', flush=True)
 
     return twoBodyActive,NcvActive,oneBody_active,S_active,E_const
 
@@ -123,6 +135,6 @@ def get_two_body(mol, tol=1.0E-6):
         logging.warn("mol has high verbosity: Cholesky output will be very large")
 
     gto_gen = GTOIntegralGenerator(mol)
-    numcholesky,choleskyAO = cholesky(gto_gen,tol=tol)
+    _,choleskyAO = cholesky(gto_gen,tol=tol)
 
     return choleskyAO
