@@ -1,6 +1,14 @@
+"""
+Cholesky Utilities
+
+author: Kyle Eskridge
+
+"""
 import numpy as np
 
-def ao2mo_cholesky(C,choleskyVecAO,verb=False):
+from embedding.lib.numpy_helper import einsum_optimized
+
+def _ao2mo_cholesky_matmal(C,choleskyVecAO,verb=False):
     '''
     Transforms the GTO basis Cholesky vectors to the MO basis
     
@@ -17,6 +25,7 @@ def ao2mo_cholesky(C,choleskyVecAO,verb=False):
     Returns:
        chleskyVecMO - numpy array containing the Cholesky vectros represented in the MO basis
     '''
+    print('[+] transforming Cholesky vectors to MO basis',flush=True)
     ncv = choleskyVecAO.shape[0]
     MA = C.shape[1]
     nGTO, nactive = C.shape
@@ -32,7 +41,7 @@ def ao2mo_cholesky(C,choleskyVecAO,verb=False):
     return choleskyVecMO
 
 
-def ao2mo_cholesky(C,choleskyVecAO,verb=False):
+def _ao2mo_cholesky_einsum(C,choleskyVecAO,verb=False):
     '''
     Transforms the GTO basis Cholesky vectors to the MO basis
     
@@ -51,17 +60,10 @@ def ao2mo_cholesky(C,choleskyVecAO,verb=False):
     '''
 
     print('[+] transforming Cholesky vectors to MO basis',flush=True)
-    Cdag = C.conj().T # for readability below!
+    Cdag = C.conj().T
+    return einsum_optimized('im,gmn,nj->gij',Cdag,choleskyVecAO,C,fname='ao2mo_cholesky_path.json') 
 
-    print('  [+] optimizing einsum path for AO to MO basis transformation', flush=True)
-    path,path_str = np.einsum_path('im,gmn,nj->gij',Cdag,choleskyVecAO,C,optimize='greedy')
-    print("     optimal path: ", path)
-    print(path_str)
-
-    print('  [+] performing AO to MO transformation', flush=True)
-    choleskyVecMO = np.einsum('im,gmn,nj->gij',Cdag,choleskyVecAO,C,optimize=path)
-
-    return choleskyVecMO
+ao2mo_cholesky = _ao2mo_cholesky_matmal
 
 def get_embedding_constant(C, Alist, AdagList, debug=False, is_complex=True):
     '''
@@ -76,36 +78,17 @@ def get_embedding_constant(C, Alist, AdagList, debug=False, is_complex=True):
     '''
     if is_complex:
         print('[+] computing <Vd> ...',flush=True)
-        print('  [+] optimizing einsum path', flush=True)
-        path,path_str = np.einsum_path('gii,gjj->',Alist,AdagList,optimize='greedy')
-        print("     optimal path: ", path)
-        print(path_str)
-        print('  [+] contracting Cholesky vectors along optimal path', flush=True)
-        Vd = np.einsum('gii,gjj->',Alist,AdagList,optimize=path)
+        Vd = einsum_optimized('gii,gjj->',Alist,AdagList,fname='get_embedding_constant_Vd.json')
 
         print('[+] computing <Vx> ...',flush=True)
-        print('  [+] optimizing einsum path', flush=True)
-        path,path_str = np.einsum_path('gij,gji->',Alist,AdagList,optimize='greedy')
-        print("     optimal path: ", path)
-        print(path_str)
-        print('  [+] contracting Cholesky vectors along optimal path', flush=True)
-        Vx = np.einsum('gij,gji->',Alist,AdagList,optimize=path)
+        Vx = einsum_optimized('gij,gji->',Alist,AdagList,fname='get_embedding_constant_Vx.json')
+
     else:
         print('[+] computing <Vd> ...',flush=True)
-        print('  [+] optimizing einsum path', flush=True)
-        path,path_str = np.einsum_path('gii,gjj->',Alist,Alist,optimize='greedy')
-        print("     optimal path: ", path)
-        print(path_str)
-        print('  [+] contracting Cholesky vectors along optimal path', flush=True)
-        Vd = np.einsum('gii,gjj->',Alist,Alist,optimize=path)
+        Vd = einsum_optimized('gii,gjj->',Alist,Alist,fname='get_embedding_constant_Vd.json')
 
         print('[+] computing <Vx> ...',flush=True)
-        print('  [+] optimizing einsum path', flush=True)
-        path,path_str = np.einsum_path('gij,gji->',Alist,Alist,optimize='greedy')
-        print("     optimal path: ", path)
-        print(path_str)
-        print('  [+] contracting Cholesky vectors along optimal path', flush=True)
-        Vx = np.einsum('gij,gji->',Alist,Alist,optimize=path)
+        Vx = einsum_optimized('gij,gji->',Alist,Alist,fname='get_embedding_constant_Vx.json')
     
     return 2*Vd - Vx 
 
@@ -120,39 +103,19 @@ def get_embedding_potential(nfc, C, Alist, AdagList, debug=False,is_complex=True
         G_core = np.eye(nfc,dtype='complex128')
         # compute the direct term as G_{I L} * V_{I j k L} -> Pyscf (Chemists') notation, want (IL|jk) mo integrals
         print('[+] computing Vd ...',flush=True)
-        print('  [+] optimizing einsum path for direct term', flush=True)
-        path,path_str = np.einsum_path('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],AdagList[:, nfc:, nfc:],optimize='greedy')
-        print("     optimal path: ", path)
-        print(path_str)
-        print('  [+] contracting Cholesky vectors along optimal path', flush=True)
-        Vd = np.einsum('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],AdagList[:, nfc:, nfc:],optimize=path)
+        Vd = einsum_optimized('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],AdagList[:, nfc:, nfc:],fname='get_embedding_potential_Vd.json')
 
         # compute the exchange term as G_{I L} * V_{i J k L} -> Pyscf (Chemists') notation, want (iL|Jk) mo integrals
         print('[+] computing Vx ...')
-        print('  [+] optimizing einsum path for exchange term', flush=True)
-        path,path_str = np.einsum_path('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],AdagList[:,:nfc,nfc:],optimize='greedy')
-        print('  [+] contracting Cholesky vectors along optimal path', flush=True)
-        print("     optimal path: ", path)
-        print(path_str)
-        Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],AdagList[:,:nfc,nfc:],optimize=path)
+        Vx = einsum_optimized('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],AdagList[:,:nfc,nfc:],fname='get_embedding_potential_Vx.json')
     else:
         G_core = np.eye(nfc)
         # compute the direct term as G_{I L} * V_{I j k L} -> Pyscf (Chemists') notation, want (IL|jk) mo integrals
         print('[+] computing Vd ...')
-        print('  [+] optimizing einsum path for direct term', flush=True)
-        path,path_str = np.einsum_path('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],Alist[:, nfc:, nfc:],optimize='greedy')
-        print("     optimal path: ", path)
-        print(path_str)
-        print('  [+] contracting Cholesky vectors along optimal path', flush=True)
-        Vd = np.einsum('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],Alist[:, nfc:, nfc:],optimize=path)
+        Vd = einsum_optimized('il,gil,gjk->jk',G_core,Alist[:,:nfc,:nfc],Alist[:, nfc:, nfc:],fname='get_embedding_potential_Vd.json')
 
         # compute the exchange term as G_{I L} * V_{i J k L} -> Pyscf (Chemists') notation, want (iL|Jk) mo integrals
         print('[+] computing Vx ...')
-        print('  [+] optimizing einsum path for exchange term', flush=True)
-        path,path_str = np.einsum_path('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],Alist[:,:nfc,nfc:],optimize='greedy')
-        print('  [+] contracting Cholesky vectors along optimal path', flush=True)
-        print("     optimal path: ", path)
-        print(path_str)
-        Vx = np.einsum('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],Alist[:,:nfc,nfc:],optimize=path)
-    
+        Vx = einsum_optimized('jl,gil,gjk->ik',G_core,Alist[:,nfc:,:nfc],Alist[:,:nfc,nfc:],fname='get_embedding_potential_Vx.json')
+
     return 2*Vd - Vx
