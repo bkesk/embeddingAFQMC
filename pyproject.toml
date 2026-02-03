@@ -1,6 +1,10 @@
 [build-system]
-requires = ["setuptools < 60.0","numpy","h5py","pyscf","matplotlib"]
-build-backend = "setuptools.build_meta"
+requires = [
+	 "numpy",
+	 "h5py",
+	 "pyscf",
+	 "matplotlib"
+]
 
 [project]
 name = "embedding_bkesk"
