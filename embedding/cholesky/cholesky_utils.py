@@ -31,7 +31,7 @@ def _ao2mo_cholesky_matmal(C,choleskyVecAO,verb=False):
     nGTO, nactive = C.shape
     Cdag = C.conj().T # for readability below!
     choleskyVecMO = np.zeros((ncv,MA,MA))
-    for i in range(ncv):
+    for i in np.arange(ncv):
         if verb:
             print(f'transforming vector {i}')
             if i % 100 == 0:
