@@ -97,7 +97,7 @@ twoBody,numCholeskyActive,oneBody,S,E0 = make_embedding_H(ncore=1,
 ## Legacy version
 
 Recently, the embeddingAFQMC Library was reorganized, and some redundant and/or 
-deprecated code has been romved.
+deprecated code has been removed.
 A legacy version of the embedding exists in the `legacy` branch for code that still uses it.
 Some "helper" tools from `legacy` may be updated and pushed back into the main branch.
 
